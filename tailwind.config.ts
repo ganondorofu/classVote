@@ -1,3 +1,4 @@
+
 import type {Config} from 'tailwindcss';
 
 export default {
@@ -10,8 +11,8 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        body: ['Inter', 'sans-serif'],
-        headline: ['Inter', 'sans-serif'],
+        body: ['Inter', '"Noto Sans JP"', 'sans-serif'], // Added Noto Sans JP
+        headline: ['Inter', '"Noto Sans JP"', 'sans-serif'], // Added Noto Sans JP
         code: ['monospace'],
       },
       colors: {

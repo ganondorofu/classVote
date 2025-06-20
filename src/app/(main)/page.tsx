@@ -1,3 +1,4 @@
+
 "use client"
 
 import Link from "next/link";
@@ -13,10 +14,10 @@ export default function HomePage() {
   return (
     <div className="container mx-auto py-8 px-4">
       <div className="flex flex-col sm:flex-row justify-between items-center mb-8 gap-4">
-        <h1 className="text-4xl font-bold font-headline text-primary">ClassVote Dashboard</h1>
+        <h1 className="text-4xl font-bold font-headline text-primary">ClassVote ダッシュボード</h1>
         <Button asChild size="lg" className="bg-accent hover:bg-accent/90 text-accent-foreground">
           <Link href="/create-vote">
-            <PlusCircle className="mr-2 h-5 w-5" /> Create New Vote
+            <PlusCircle className="mr-2 h-5 w-5" /> 新しい投票を作成
           </Link>
         </Button>
       </div>
@@ -38,8 +39,8 @@ export default function HomePage() {
       {isLoaded && votes.length === 0 && (
         <div className="text-center py-10">
           <ListChecks className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-          <p className="text-xl text-muted-foreground">No active votes yet.</p>
-          <p className="text-muted-foreground">Why not create one?</p>
+          <p className="text-xl text-muted-foreground">現在、アクティブな投票はありません。</p>
+          <p className="text-muted-foreground">作成してみませんか？</p>
         </div>
       )}
 

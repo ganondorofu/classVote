@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, type ReactNode } from 'react';
@@ -18,32 +19,32 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { ShieldCheck } from "lucide-react";
 
 interface AdminAuthProps {
-  expectedAdminId: string;
+  expectedAdminPassword: string; // Changed from expectedAdminId
   onAuthenticated: (isAuthenticated: boolean) => void;
   children: ReactNode;
 }
 
 const authSchema = z.object({
-  adminId: z.string().min(1, "Admin ID is required."),
+  adminPassword: z.string().length(4, { message: "パスワードは4桁で入力してください。" }).regex(/^\d{4}$/, { message: "パスワードは4桁の数字で入力してください。" }),
 });
 type AuthFormValues = z.infer<typeof authSchema>;
 
-export function AdminAuth({ expectedAdminId, onAuthenticated, children }: AdminAuthProps) {
+export function AdminAuth({ expectedAdminPassword, onAuthenticated, children }: AdminAuthProps) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authAttempted, setAuthAttempted] = useState(false);
 
   const form = useForm<AuthFormValues>({
     resolver: zodResolver(authSchema),
-    defaultValues: { adminId: "" },
+    defaultValues: { adminPassword: "" },
   });
 
   const handleAuthSubmit = (data: AuthFormValues) => {
     setAuthAttempted(true);
-    if (data.adminId === expectedAdminId) {
+    if (data.adminPassword === expectedAdminPassword) {
       setIsAuthenticated(true);
       onAuthenticated(true);
     } else {
-      form.setError("adminId", { type: "manual", message: "Incorrect Admin ID." });
+      form.setError("adminPassword", { type: "manual", message: "パスワードが正しくありません。" });
       setIsAuthenticated(false);
       onAuthenticated(false);
     }
@@ -57,33 +58,33 @@ export function AdminAuth({ expectedAdminId, onAuthenticated, children }: AdminA
     <Card className="w-full max-w-md mx-auto mt-10 shadow-lg">
       <CardHeader>
         <CardTitle className="text-2xl font-headline flex items-center">
-          <ShieldCheck className="mr-2 h-7 w-7 text-primary" /> Admin Access
+          <ShieldCheck className="mr-2 h-7 w-7 text-primary" /> 管理者認証
         </CardTitle>
-        <CardDescription>Enter the creator's attendance number to manage this vote.</CardDescription>
+        <CardDescription>この投票を管理するには、設定した4桁のパスワードを入力してください。</CardDescription>
       </CardHeader>
       <CardContent>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleAuthSubmit)} className="space-y-6">
             <FormField
               control={form.control}
-              name="adminId"
+              name="adminPassword" // Changed from adminId
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Creator Attendance Number</FormLabel>
+                  <FormLabel>管理用パスワード</FormLabel>
                   <FormControl>
-                    <Input type="password" placeholder="Enter Admin ID" {...field} autoComplete="off" />
+                    <Input type="password" placeholder="4桁のパスワードを入力" {...field} autoComplete="current-password" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
             <Button type="submit" className="w-full bg-primary hover:bg-primary/90">
-              Authenticate
+              認証
             </Button>
           </form>
         </Form>
         {authAttempted && !isAuthenticated && (
-          <p className="mt-4 text-sm text-destructive text-center">Authentication failed. Please try again.</p>
+          <p className="mt-4 text-sm text-destructive text-center">認証に失敗しました。もう一度お試しください。</p>
         )}
       </CardContent>
     </Card>
