@@ -44,7 +44,7 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
   const [alreadyVoted, setAlreadyVoted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showThankYou, setShowThankYou] = useState(false);
-  const [customOptionInput, setCustomOptionInput] = useState("");
+  const [customOptionInput, setCustomOptionInput] = useState(""); // This seems separate from RHF's customOption
 
   const attendanceForm = useForm<AttendanceFormValues>({
     resolver: zodResolver(attendanceSchema),
@@ -64,7 +64,7 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
       }
     } else if (vote.voteType === 'yes_no') {
       submissionValueSchema = z.enum(["yes", "no"]);
-      if (vote.allowEmptyVotes) { // Though typically not for yes/no, but to be consistent
+      if (vote.allowEmptyVotes) { 
         submissionValueSchema = submissionValueSchema.optional();
       } else {
          submissionValueSchema = z.enum(["yes", "no"], {required_error: "「はい」または「いいえ」を選択してください。"});
@@ -75,7 +75,7 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
         if (!vote.allowEmptyVotes) {
           submissionValueSchema = submissionValueSchema.min(1, "少なくとも1つ選択してください。");
         }
-      } else { // Single selection multiple choice
+      } else { 
         submissionValueSchema = z.string();
         if (vote.allowEmptyVotes) {
           submissionValueSchema = submissionValueSchema.optional();
@@ -84,12 +84,12 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
         }
       }
     } else {
-      submissionValueSchema = z.any(); // Fallback, should not happen
+      submissionValueSchema = z.any(); 
     }
     
     return z.object({
         submissionValue: submissionValueSchema,
-        customOption: z.string().optional(), // For the custom option text input
+        customOption: z.string().optional(), 
     });
   };
   
@@ -130,28 +130,23 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
         let selectedValues: string[] = [];
         if (vote.allowMultipleSelections) {
             selectedValues = Array.isArray(data.submissionValue) ? data.submissionValue : [];
-        } else { // Single selection
+        } else { 
             if (typeof data.submissionValue === 'string' && data.submissionValue) {
                 selectedValues = [data.submissionValue];
             }
         }
         
-        // Handle custom option
         if (vote.allowAddingOptions && data.customOption && data.customOption.trim() !== "") {
             const customValue = `${USER_OPTION_PREFIX}${data.customOption.trim()}`;
-            // If custom option checkbox was part of `submissionValue` (e.g. for multiple selections), it might be named `custom_option_checkbox`
-            // For now, assume if customOption text field has value, it's a submission.
-            // If multiple selections, add it. If single, it might override existing.
              if (vote.allowMultipleSelections) {
-                // Check if the "custom option placeholder" was selected, if so, replace/add the actual custom value
                 const customPlaceholderIndex = selectedValues.indexOf("___custom_option_checkbox_value___");
                 if (customPlaceholderIndex > -1) {
                     selectedValues.splice(customPlaceholderIndex, 1, customValue);
                 } else if (!selectedValues.includes(customValue)) {
                      selectedValues.push(customValue);
                 }
-            } else { // Single selection, custom option overrides if text is present
-                 selectedValues = [customValue]; // This might override a selected radio if custom text is also provided
+            } else { 
+                 selectedValues = [customValue]; 
             }
         }
         
@@ -169,7 +164,7 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
              setIsLoading(false);
              return;
         }
-    } else { // yes_no
+    } else { 
         finalSubmissionValue = data.submissionValue as string | undefined;
          if (!vote.allowEmptyVotes && finalSubmissionValue === undefined) {
              submissionForm.setError("submissionValue", { type: "manual", message: "「はい」または「いいえ」を選択してください。" });
@@ -180,7 +175,6 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
 
 
     if (finalSubmissionValue === undefined && !vote.allowEmptyVotes) {
-        // This case should ideally be caught by specific checks above
         toast({ title: "エラー", description: "投票内容が無効です。", variant: "destructive" });
         setIsLoading(false);
         return;
@@ -345,7 +339,7 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
             <FormField
               control={submissionForm.control}
               name="submissionValue"
-              render={({ field }) => (
+              render={({ field }) => ( // 'field' here is for 'submissionValue'
                 <FormItem className="space-y-3">
                   <FormLabel className="text-lg">あなたの投票:</FormLabel>
                   <FormControl>
@@ -355,14 +349,13 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
                       )}
                       {vote.voteType === "multiple_choice" && vote.options && (
                         vote.allowMultipleSelections ? (
-                          // Checkbox group for multiple selections
                           <div className="space-y-2">
                             {vote.options.map((option) => (
                               <FormField
                                 key={option.id}
                                 control={submissionForm.control}
-                                name="submissionValue"
-                                render={({ field: checkboxField }) => {
+                                name="submissionValue" 
+                                render={({ field: checkboxField }) => { // 'checkboxField' is for 'submissionValue' (as array)
                                   const currentValues = Array.isArray(checkboxField.value) ? checkboxField.value : [];
                                   return (
                                     <FormItem className="flex flex-row items-start space-x-3 space-y-0 p-3 border rounded-md hover:bg-secondary/50 transition-colors">
@@ -388,21 +381,19 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
                                 }}
                               />
                             ))}
-                            {/* Input for custom option if allowed with multiple selections */}
                             {vote.allowAddingOptions && (
                                <FormField
                                 control={submissionForm.control}
-                                name="customOption" // Name for the custom option text input
-                                render={({ field: customTextField }) => (
+                                name="customOption" 
+                                render={({ field: customTextField }) => ( // 'customTextField' is for 'customOption'
                                     <FormItem className="flex flex-row items-start space-x-3 space-y-0 p-3 border rounded-md hover:bg-secondary/50 transition-colors">
                                     <FormControl>
-                                        {/* This checkbox helps to signal intent for the custom option when multiple selections are allowed */}
                                         <Checkbox
-                                        checked={Array.isArray(field.value) && field.value.includes("___custom_option_checkbox_value___")}
+                                        checked={Array.isArray(field.value) && field.value.includes("___custom_option_checkbox_value___")} // 'field.value' here is submissionValue
                                         onCheckedChange={(checked) => {
                                             const currentValues = Array.isArray(field.value) ? field.value : [];
                                             return checked
-                                            ? field.onChange([...currentValues, "___custom_option_checkbox_value___"])
+                                            ? field.onChange([...currentValues, "___custom_option_checkbox_value___"]) // Changes submissionValue
                                             : field.onChange(currentValues.filter(v => v !== "___custom_option_checkbox_value___"));
                                         }}
                                         />
@@ -411,11 +402,12 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
                                         type="text"
                                         placeholder="その他（ここに記入）"
                                         {...customTextField}
+                                        value={customTextField.value || ""} // Ensure controlled
                                         className="flex-1"
-                                        onFocus={() => { // Auto-check the related checkbox on focus if not already part of selection
-                                            const currentValues = Array.isArray(field.value) ? field.value : [];
+                                        onFocus={() => { 
+                                            const currentValues = Array.isArray(field.value) ? field.value : []; // field.value is submissionValue
                                             if (!currentValues.includes("___custom_option_checkbox_value___")) {
-                                                field.onChange([...currentValues, "___custom_option_checkbox_value___"]);
+                                                field.onChange([...currentValues, "___custom_option_checkbox_value___"]); // Changes submissionValue
                                             }
                                         }}
                                     />
@@ -425,9 +417,8 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
                             )}
                           </div>
                         ) : (
-                          // Radio group for single selection
                           <RadioGroup
-                            onValueChange={field.onChange}
+                            onValueChange={field.onChange} // Changes submissionValue
                             value={typeof field.value === 'string' ? field.value : ""} 
                             className="flex flex-col space-y-2"
                           >
@@ -439,19 +430,17 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
                                 <FormLabel className="font-normal text-base cursor-pointer flex-1">{option.text}</FormLabel>
                               </FormItem>
                             ))}
-                            {/* Input for custom option if allowed with single selection */}
                             {vote.allowAddingOptions && (
                                <FormField
                                 control={submissionForm.control}
                                 name="customOption"
-                                render={({ field: customTextField }) => (
+                                render={({ field: customTextField }) => ( // 'customTextField' is for 'customOption'
                                     <FormItem className="flex items-center space-x-3 space-y-0 p-3 border rounded-md hover:bg-secondary/50 transition-colors">
                                         <FormControl>
-                                            {/* This radio is implicitly selected if customTextField has value */}
                                             <RadioGroupItem value={`${USER_OPTION_PREFIX}${customTextField.value || "placeholder"}`} 
-                                                checked={!!customTextField.value} // Visually check if there's custom text
-                                                onClick={() => { // Clear main selection if custom radio is manually clicked (and text is empty)
-                                                    if (!customTextField.value) field.onChange(undefined);
+                                                checked={!!customTextField.value} 
+                                                onClick={() => { 
+                                                    if (!customTextField.value) field.onChange(undefined); // Changes submissionValue
                                                 }}
                                             />
                                         </FormControl>
@@ -459,19 +448,11 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
                                             type="text"
                                             placeholder="その他（ここに記入）"
                                             {...customTextField}
+                                            value={customTextField.value || ""} // Ensure controlled
                                             className="flex-1"
-                                            onFocus={() => field.onChange(undefined)} // Clear other radio selection on focus
-                                            onChange={(e) => { // Handle change for the text field
+                                            onFocus={() => field.onChange(undefined)} // Changes submissionValue
+                                            onChange={(e) => { 
                                                 customTextField.onChange(e);
-                                                // if text is entered, make this "custom" option the submissionValue implicitly
-                                                if (e.target.value.trim() !== "") {
-                                                    // For single choice, the submissionValue becomes the custom text itself (prefixed)
-                                                    // No, this direct field.onChange is problematic for Zod.
-                                                    // The actual value combination happens in handleVoteSubmit.
-                                                } else {
-                                                    // If custom text is cleared, and this radio was implicitly selected by text, clear it.
-                                                    // This logic is tricky. Let handleVoteSubmit manage the final value.
-                                                }
                                             }}
                                         />
                                     </FormItem>
