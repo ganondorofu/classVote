@@ -70,12 +70,12 @@ export function AdminPanelContent({ initialVote }: AdminPanelContentProps) {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <p className="text-sm flex items-center">
+          <div className="text-sm flex items-center">
             <KeyRound className="mr-1.5 h-4 w-4 text-muted-foreground" /> 管理ステータス: <Badge variant="outline" className="ml-1">パスワード保護済み</Badge>
-          </p>
-          <p className="text-sm mt-1">
+          </div>
+          <div className="text-sm mt-1">
             公開設定: <Badge variant="outline">{getVisibilityDisplay(vote.visibilitySetting)}</Badge>
-          </p>
+          </div>
         </CardContent>
         <CardFooter>
           <Button onClick={handleToggleVoteStatus} variant={vote.status === 'open' ? 'destructive' : 'default'} className="min-w-[150px] group">
