@@ -3,12 +3,30 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import type { Vote, Submission, VoteOption, VoteType, VisibilitySetting } from '@/lib/store-types';
-
-const VOTES_KEY = 'classvote_votes';
-const SUBMISSIONS_KEY = 'classvote_submissions';
+import { db } from '@/lib/firebase';
+import {
+  collection,
+  doc,
+  addDoc,
+  setDoc,
+  getDocs,
+  updateDoc,
+  deleteDoc,
+  onSnapshot,
+  Timestamp,
+  query,
+  where,
+  serverTimestamp,
+  QuerySnapshot,
+  DocumentData,
+} from 'firebase/firestore';
+import { useToast } from './use-toast';
 
 function generateId(): string {
-  return Math.random().toString(36).substr(2, 9);
+  // Firestore can generate IDs, but we'll use this for consistency if needed for optimistic updates
+  // or if we want to set doc IDs explicitly before creation.
+  // For addDoc, Firestore generates the ID. For setDoc(doc(collectionRef, newId)), we provide it.
+  return doc(collection(db, '_temp')).id; // Generate a Firestore-compatible ID
 }
 
 interface AddVoteData {
@@ -18,120 +36,174 @@ interface AddVoteData {
   voteType: VoteType;
   visibilitySetting: VisibilitySetting;
   allowEmptyVotes?: boolean;
-  options?: string[]; // For multiple_choice
-  allowMultipleSelections?: boolean; // For multiple_choice
-  allowAddingOptions?: boolean; // For multiple_choice
+  options?: string[];
+  allowMultipleSelections?: boolean;
+  allowAddingOptions?: boolean;
 }
-
 
 export function useVoteStore() {
   const [votes, setVotes] = useState<Vote[]>([]);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
+  const { toast } = useToast();
+
+  const mapFirestoreDocToVote = (docData: DocumentData): Vote => {
+    const data = docData.data();
+    return {
+      id: docData.id,
+      title: data.title,
+      adminPassword: data.adminPassword,
+      totalExpectedVoters: data.totalExpectedVoters,
+      voteType: data.voteType,
+      options: data.options?.map((opt: any) => ({ // Ensure options are mapped correctly
+        id: opt.id || generateId(), // Firestore might not store id for sub-objects if not explicitly set
+        text: opt.text,
+      })),
+      visibilitySetting: data.visibilitySetting,
+      status: data.status,
+      createdAt: (data.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+      closedAt: (data.closedAt as Timestamp)?.toDate().toISOString(),
+      allowEmptyVotes: data.allowEmptyVotes ?? false,
+      allowMultipleSelections: data.allowMultipleSelections ?? false,
+      allowAddingOptions: data.allowAddingOptions ?? false,
+    };
+  };
+
+  const mapFirestoreDocToSubmission = (docData: DocumentData): Submission => {
+    const data = docData.data();
+    return {
+      id: docData.id,
+      voteId: data.voteId,
+      voterAttendanceNumber: data.voterAttendanceNumber,
+      submissionValue: data.submissionValue,
+      submittedAt: (data.submittedAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+    };
+  };
 
   useEffect(() => {
-    try {
-      const storedVotes = localStorage.getItem(VOTES_KEY);
-      if (storedVotes) {
-        setVotes(JSON.parse(storedVotes));
-      }
-      const storedSubmissions = localStorage.getItem(SUBMISSIONS_KEY);
-      if (storedSubmissions) {
-        setSubmissions(JSON.parse(storedSubmissions));
-      }
-    } catch (error) {
-      console.error("localStorageからの読み込みに失敗しました", error);
-    }
-    setIsLoaded(true);
-  }, []);
+    setIsLoaded(false);
+    const votesQuery = query(collection(db, "votes"));
+    const unsubscribeVotes = onSnapshot(votesQuery, (querySnapshot: QuerySnapshot<DocumentData>) => {
+      const votesData = querySnapshot.docs.map(mapFirestoreDocToVote);
+      setVotes(votesData);
+      if (!isLoaded) setIsLoaded(true); // Set loaded after first fetch for votes
+    }, (error) => {
+      console.error("Error fetching votes from Firestore:", error);
+      toast({ title: "エラー", description: "投票データの読み込みに失敗しました。", variant: "destructive" });
+      if (!isLoaded) setIsLoaded(true); // Still set loaded on error to unblock UI
+    });
 
-  useEffect(() => {
-    if (isLoaded) {
-      try {
-        localStorage.setItem(VOTES_KEY, JSON.stringify(votes));
-      } catch (error) {
-        console.error("投票データのlocalStorageへの保存に失敗しました", error);
-      }
-    }
-  }, [votes, isLoaded]);
+    const submissionsQuery = query(collection(db, "submissions"));
+    const unsubscribeSubmissions = onSnapshot(submissionsQuery, (querySnapshot: QuerySnapshot<DocumentData>) => {
+      const submissionsData = querySnapshot.docs.map(mapFirestoreDocToSubmission);
+      setSubmissions(submissionsData);
+       // if votes are already loaded, we can consider overall load complete
+      if (votes.length > 0 || querySnapshot.empty) setIsLoaded(true);
+    }, (error) => {
+      console.error("Error fetching submissions from Firestore:", error);
+      toast({ title: "エラー", description: "提出データの読み込みに失敗しました。", variant: "destructive" });
+      if (!isLoaded) setIsLoaded(true);
+    });
 
-  useEffect(() => {
-    if (isLoaded) {
-      try {
-        localStorage.setItem(SUBMISSIONS_KEY, JSON.stringify(submissions));
-      } catch (error) {
-        console.error("提出データのlocalStorageへの保存に失敗しました", error);
-      }
-    }
-  }, [submissions, isLoaded]);
+    return () => {
+      unsubscribeVotes();
+      unsubscribeSubmissions();
+    };
+  }, [toast]); // Added toast to dependency array
 
-  const addVote = useCallback((voteData: AddVoteData) => {
-    const newVote: Vote = {
-      id: generateId(),
+  const addVote = useCallback(async (voteData: AddVoteData): Promise<Vote> => {
+    const newVoteId = generateId();
+    const votePayload: Omit<Vote, 'id' | 'createdAt' | 'closedAt' | 'status'> & { createdAt: Timestamp } = {
       title: voteData.title,
       adminPassword: voteData.adminPassword,
       totalExpectedVoters: voteData.totalExpectedVoters,
       voteType: voteData.voteType,
       visibilitySetting: voteData.visibilitySetting,
       allowEmptyVotes: voteData.allowEmptyVotes ?? false,
-      createdAt: new Date().toISOString(),
-      status: 'open',
       options: voteData.options?.map(optText => ({ id: generateId(), text: optText })),
       allowMultipleSelections: voteData.allowMultipleSelections ?? false,
       allowAddingOptions: voteData.allowAddingOptions ?? false,
+      createdAt: Timestamp.fromDate(new Date()),
     };
-    setVotes(prevVotes => [...prevVotes, newVote]);
-    return newVote;
-  }, []);
+
+    const voteToStore = {
+      ...votePayload,
+      status: 'open' as 'open' | 'closed',
+    }
+
+    try {
+      await setDoc(doc(db, "votes", newVoteId), voteToStore);
+      const createdVote: Vote = {
+        ...voteToStore,
+        id: newVoteId,
+        createdAt: voteToStore.createdAt.toDate().toISOString(),
+      };
+      // No need to setVotes here, onSnapshot will handle it.
+      return createdVote;
+    } catch (error) {
+      console.error("Error adding vote to Firestore:", error);
+      toast({ title: "エラー", description: "投票の作成に失敗しました。", variant: "destructive" });
+      throw error;
+    }
+  }, [toast]);
 
   const getVoteById = useCallback((id: string): Vote | undefined => {
     return votes.find(vote => vote.id === id);
   }, [votes]);
 
-  const updateVoteStatus = useCallback((id: string, status: 'open' | 'closed') => {
-    setVotes(prevVotes =>
-      prevVotes.map(vote =>
-        vote.id === id ? { ...vote, status, closedAt: status === 'closed' ? new Date().toISOString() : undefined } : vote
-      )
-    );
-  }, []);
+  const updateVoteStatus = useCallback(async (id: string, status: 'open' | 'closed') => {
+    const voteRef = doc(db, "votes", id);
+    const updatePayload: { status: 'open' | 'closed'; closedAt?: Timestamp } = { status };
+    if (status === 'closed') {
+      updatePayload.closedAt = Timestamp.fromDate(new Date());
+    } else {
+      // If reopening, Firestore's serverTimestamp can be used, or ensure closedAt is removed/handled
+      // For simplicity, we can allow 'closedAt' to remain, or explicitly set it to null / delete it.
+      // Firebase specific: updatePayload.closedAt = deleteField() if you want to remove it.
+      // Here, we'll just not set it if opening.
+    }
 
-  // Function to add a new user-defined option to a vote dynamically
-  // This is not directly used by addSubmission but could be if we decide to persist user options to the Vote object
-  // For now, custom options are handled within submissionValue.
-  // const addUserOptionToVote = useCallback((voteId: string, optionText: string): VoteOption | undefined => {
-  //   let newOption: VoteOption | undefined = undefined;
-  //   setVotes(prevVotes => 
-  //     prevVotes.map(vote => {
-  //       if (vote.id === voteId && vote.voteType === 'multiple_choice' && vote.allowAddingOptions) {
-  //         newOption = { id: `USER_OPTION_${generateId()}`, text: optionText };
-  //         return {
-  //           ...vote,
-  //           options: [...(vote.options || []), newOption],
-  //         };
-  //       }
-  //       return vote;
-  //     })
-  //   );
-  //   return newOption;
-  // }, []);
+    try {
+      await updateDoc(voteRef, updatePayload);
+      // onSnapshot will update local state
+    } catch (error) {
+      console.error("Error updating vote status in Firestore:", error);
+      toast({ title: "エラー", description: "投票ステータスの更新に失敗しました。", variant: "destructive" });
+    }
+  }, [toast]);
 
-
-  const addSubmission = useCallback((submissionData: Omit<Submission, 'id' | 'submittedAt'>) => {
-    const newSubmission: Submission = {
+  const addSubmission = useCallback(async (submissionData: Omit<Submission, 'id' | 'submittedAt'>): Promise<Submission> => {
+    const newSubmissionId = generateId();
+    const submissionPayload: Omit<Submission, 'id'> & { submittedAt: Timestamp } = {
       ...submissionData,
-      id: generateId(),
-      submittedAt: new Date().toISOString(),
+      submittedAt: Timestamp.fromDate(new Date()),
     };
-    setSubmissions(prevSubmissions => [...prevSubmissions, newSubmission]);
-    return newSubmission;
-  }, []);
 
-  const deleteSubmissionById = useCallback((submissionId: string) => {
-    setSubmissions(prevSubmissions =>
-      prevSubmissions.filter(sub => sub.id !== submissionId)
-    );
-  }, []);
+    try {
+      await setDoc(doc(db, "submissions", newSubmissionId), submissionPayload);
+      const createdSubmission: Submission = {
+        ...submissionPayload,
+        id: newSubmissionId,
+        submittedAt: submissionPayload.submittedAt.toDate().toISOString(),
+      };
+      // onSnapshot will update local state
+      return createdSubmission;
+    } catch (error) {
+      console.error("Error adding submission to Firestore:", error);
+      toast({ title: "エラー", description: "投票の提出に失敗しました。", variant: "destructive" });
+      throw error;
+    }
+  }, [toast]);
+
+  const deleteSubmissionById = useCallback(async (submissionId: string) => {
+    try {
+      await deleteDoc(doc(db, "submissions", submissionId));
+      // onSnapshot will update local state
+    } catch (error) {
+      console.error("Error deleting submission from Firestore:", error);
+      toast({ title: "エラー", description: "投票の削除に失敗しました。", variant: "destructive" });
+    }
+  }, [toast]);
 
   const getSubmissionsByVoteId = useCallback((voteId: string): Submission[] => {
     return submissions.filter(submission => submission.voteId === voteId);
@@ -157,7 +229,6 @@ export function useVoteStore() {
     }
     return unvoted;
   }, [getVoteById, getSubmissionsByVoteId]);
-
 
   return {
     votes,
