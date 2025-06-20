@@ -23,7 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch"; // Added Switch import
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useVoteStore } from "@/hooks/use-vote-store";
 import { useToast } from "@/hooks/use-toast";
@@ -37,6 +37,7 @@ const voteFormSchema = z.object({
   voteType: z.enum(["free_text", "multiple_choice", "yes_no"]),
   options: z.array(z.object({ text: z.string().min(1, "選択肢のテキストは空にできません。") })).optional(),
   visibilitySetting: z.enum(["everyone", "admin_only", "anonymous"]),
+  allowEmptyVotes: z.boolean().optional(),
 }).refine(data => {
   if (data.voteType === "multiple_choice") {
     return data.options && data.options.length >= 2;
@@ -59,10 +60,11 @@ export function CreateVoteForm() {
     defaultValues: {
       title: "",
       adminPassword: "",
-      totalExpectedVoters: 38, // Default to 38
+      totalExpectedVoters: 38,
       voteType: "yes_no",
       options: [{ text: "" }, { text: "" }],
       visibilitySetting: "admin_only",
+      allowEmptyVotes: false,
     },
   });
 
@@ -81,6 +83,7 @@ export function CreateVoteForm() {
         totalExpectedVoters: data.totalExpectedVoters,
         voteType: data.voteType as VoteType,
         visibilitySetting: data.visibilitySetting as VisibilitySetting,
+        allowEmptyVotes: data.allowEmptyVotes,
         ...(data.voteType === "multiple_choice" && { options: data.options?.map(opt => opt.text) }),
       };
       
@@ -235,6 +238,28 @@ export function CreateVoteForm() {
                 </FormItem>
               )}
             />
+
+            <FormField
+              control={form.control}
+              name="allowEmptyVotes"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 shadow-sm">
+                  <div className="space-y-0.5">
+                    <FormLabel className="text-base">空の投票を許可する</FormLabel>
+                    <FormDescription>
+                      チェックすると、自由記述で何も入力しない、または選択式で何も選択しない投票を許可します。
+                    </FormDescription>
+                  </div>
+                  <FormControl>
+                    <Switch
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+
 
             <Button type="submit" size="lg" className="w-full bg-accent hover:bg-accent/90 text-accent-foreground">
               投票を作成 <ArrowRight className="ml-2 h-5 w-5" />
