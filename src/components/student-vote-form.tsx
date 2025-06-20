@@ -20,8 +20,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { useVoteStore } from "@/hooks/use-vote-store";
 import { useToast } from "@/hooks/use-toast";
-import type { Vote } from "@/lib/store-types"; // Removed Submission import as it's not directly used for types here
-import { Loader2, CheckCircle, AlertTriangle, Send } from "lucide-react";
+import type { Vote } from "@/lib/store-types";
+import { Loader2, CheckCircle, AlertTriangle, Send, Eye } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 interface StudentVoteFormProps {
   vote: Vote;
@@ -33,41 +34,48 @@ const attendanceSchema = z.object({
 type AttendanceFormValues = z.infer<typeof attendanceSchema>;
 
 export function StudentVoteForm({ vote }: StudentVoteFormProps) {
-  const { addSubmission, hasVoted } = useVoteStore(); // Removed getSubmissionsByVoteId as it's not used
+  const { addSubmission, hasVoted } = useVoteStore();
   const { toast } = useToast();
-  const [currentVoter, setCurrentVoter] = useState<number | null>(null); // Changed to number
+  const [currentVoter, setCurrentVoter] = useState<number | null>(null);
   const [alreadyVoted, setAlreadyVoted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showThankYou, setShowThankYou] = useState(false);
 
   const attendanceForm = useForm<AttendanceFormValues>({
     resolver: zodResolver(attendanceSchema),
-    defaultValues: { attendanceNumber: undefined }, // Use undefined for number type
+    defaultValues: { attendanceNumber: undefined },
   });
 
+  // Dynamically create schema based on vote type and allowEmptyVotes
   const voteSubmissionSchema = z.object({
-    submissionValue: vote.voteType === 'multiple_choice' 
-      ? z.string().min(1, "選択肢を選んでください。")
-      : vote.voteType === 'yes_no'
-      ? z.enum(["yes", "no"], { required_error: "「はい」または「いいえ」を選択してください。"})
-      : z.string().min(1, "回答を入力してください。").max(500, "回答が長すぎます。"),
+    submissionValue: vote.allowEmptyVotes
+      ? vote.voteType === 'free_text'
+        ? z.string().max(500, "回答が長すぎます。500文字以内で入力してください。").optional().default("")
+        : z.string().optional() // For multiple_choice (option.id) or yes_no ("yes"/"no") - empty string or undefined if not selected
+      : vote.voteType === 'multiple_choice'
+        ? z.string({required_error: "選択肢を選んでください。"}).min(1, "選択肢を選んでください。")
+        : vote.voteType === 'yes_no'
+          ? z.enum(["yes", "no"], { required_error: "「はい」または「いいえ」を選択してください。" })
+          : z.string().min(1, "回答を入力してください。").max(500, "回答が長すぎます。500文字以内で入力してください。"),
   });
   type VoteSubmissionValues = z.infer<typeof voteSubmissionSchema>;
 
   const submissionForm = useForm<VoteSubmissionValues>({
     resolver: zodResolver(voteSubmissionSchema),
     defaultValues: {
-        submissionValue: vote.voteType === 'yes_no' ? undefined : "" // Default for radio/select might need specific handling or be undefined
+      submissionValue: vote.allowEmptyVotes ? undefined : (vote.voteType === 'yes_no' ? undefined : "")
     }
   });
 
 
   useEffect(() => {
-    if (currentVoter !== null) { // Check for non-null explicitly
+    if (currentVoter !== null) {
       setAlreadyVoted(hasVoted(vote.id, currentVoter.toString()));
-      submissionForm.reset(); 
+      submissionForm.reset({ 
+        submissionValue: vote.allowEmptyVotes ? undefined : (vote.voteType === 'yes_no' ? undefined : "")
+      });
     }
-  }, [currentVoter, vote.id, hasVoted, submissionForm]);
+  }, [currentVoter, vote.id, hasVoted, submissionForm, vote.allowEmptyVotes, vote.voteType]);
 
 
   const handleAttendanceSubmit = (data: AttendanceFormValues) => {
@@ -75,16 +83,26 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
   };
 
   const handleVoteSubmit = async (data: VoteSubmissionValues) => {
-    if (currentVoter === null) return; // Explicitly check for null
+    if (currentVoter === null) return;
     setIsLoading(true);
     
+    // Ensure submissionValue is correctly set for empty allowed votes
+    let submissionFinalValue = data.submissionValue;
+    if (vote.allowEmptyVotes) {
+        if (vote.voteType === 'free_text' && submissionFinalValue === undefined) {
+            submissionFinalValue = ""; // Ensure empty string for free_text if optional and nothing entered
+        }
+        // For multiple_choice/yes_no, undefined is acceptable if empty is allowed.
+    }
+
+
     await new Promise(resolve => setTimeout(resolve, 500));
 
     try {
       addSubmission({
         voteId: vote.id,
-        voterAttendanceNumber: currentVoter.toString(), // Convert number to string for storage
-        submissionValue: data.submissionValue,
+        voterAttendanceNumber: currentVoter.toString(),
+        submissionValue: submissionFinalValue,
       });
       toast({
         title: "投票完了！",
@@ -101,6 +119,15 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+  
+  const getVisibilityDisplay = (setting: Vote['visibilitySetting']) => {
+    switch (setting) {
+        case 'everyone': return '全員に公開';
+        case 'admin_only': return '管理者のみ';
+        case 'anonymous': return '匿名';
+        default: return '不明';
     }
   };
 
@@ -139,12 +166,19 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
     );
   }
 
-  if (currentVoter === null) { // Explicitly check for null
+  if (currentVoter === null) {
     return (
       <Card className="w-full max-w-md mx-auto shadow-lg">
         <CardHeader>
           <CardTitle className="text-2xl font-headline">{vote.title}</CardTitle>
-          <CardDescription>投票するには出席番号（半角数字）を入力してください。</CardDescription>
+          <CardDescription className="flex flex-col gap-2">
+            <span>投票するには出席番号（半角数字）を入力してください。</span>
+            <span className="flex items-center text-xs text-muted-foreground">
+              <Eye className="mr-1.5 h-3.5 w-3.5" />
+              この投票の公開設定: <Badge variant="outline" className="ml-1">{getVisibilityDisplay(vote.visibilitySetting)}</Badge>
+              {vote.allowEmptyVotes && <Badge variant="outline" className="ml-1">空の投票可</Badge>}
+            </span>
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...attendanceForm}>
@@ -154,9 +188,9 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
                 name="attendanceNumber"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>出席番号 (例: 1～38)</FormLabel>
+                    <FormLabel>出席番号 (例: 1～{vote.totalExpectedVoters})</FormLabel>
                     <FormControl>
-                      <Input type="number" placeholder="例: 10" {...field} autoComplete="off" min="1" />
+                      <Input type="number" placeholder={`例: 10`} {...field} autoComplete="off" min="1" max={vote.totalExpectedVoters.toString()} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -197,7 +231,15 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
     <Card className="w-full max-w-lg mx-auto shadow-xl">
       <CardHeader>
         <CardTitle className="text-3xl font-headline text-primary">{vote.title}</CardTitle>
-        <CardDescription>出席番号: <span className="font-semibold">{currentVoter}</span> として投票します。以下から選択してください。</CardDescription>
+        <CardDescription className="flex flex-col gap-1">
+            <span>出席番号: <span className="font-semibold">{currentVoter}</span> として投票します。</span>
+            <span className="text-xs text-muted-foreground flex items-center">
+                 <Eye className="mr-1.5 h-3.5 w-3.5" />
+                公開設定: <Badge variant="outline" className="ml-1">{getVisibilityDisplay(vote.visibilitySetting)}</Badge>
+                 {vote.allowEmptyVotes && <Badge variant="outline" className="ml-1">空の投票可</Badge>}
+            </span>
+            <span>以下から選択してください。</span>
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <Form {...submissionForm}>
@@ -211,12 +253,12 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
                   <FormControl>
                     <>
                       {vote.voteType === "free_text" && (
-                        <Textarea placeholder="ここに回答を入力してください..." {...field} autoComplete="off" rows={5} />
+                        <Textarea placeholder="ここに回答を入力してください..." {...field} value={field.value ?? ""} autoComplete="off" rows={5} />
                       )}
                       {vote.voteType === "multiple_choice" && vote.options && (
                         <RadioGroup
                           onValueChange={field.onChange}
-                          defaultValue={field.value}
+                          value={field.value ?? ""} // Ensure value is not undefined for RadioGroup
                           className="flex flex-col space-y-2"
                         >
                           {vote.options.map((option) => (
@@ -232,7 +274,7 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
                       {vote.voteType === "yes_no" && (
                          <RadioGroup
                           onValueChange={field.onChange}
-                          defaultValue={field.value}
+                          value={field.value ?? ""} // Ensure value is not undefined for RadioGroup
                           className="flex flex-col space-y-2"
                         >
                             <FormItem className="flex items-center space-x-3 space-y-0 p-3 border rounded-md hover:bg-secondary/50 transition-colors">

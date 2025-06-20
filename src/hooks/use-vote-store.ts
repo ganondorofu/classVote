@@ -52,13 +52,14 @@ export function useVoteStore() {
     }
   }, [submissions, isLoaded]);
 
-  const addVote = useCallback((voteData: Omit<Vote, 'id' | 'createdAt' | 'status' | 'options' | 'creatorAttendanceNumber'> & { options?: string[], adminPassword: string }) => {
+  const addVote = useCallback((voteData: Omit<Vote, 'id' | 'createdAt' | 'status' | 'options' | 'creatorAttendanceNumber'> & { options?: string[], adminPassword: string, allowEmptyVotes?: boolean }) => {
     const newVote: Vote = {
       title: voteData.title,
       adminPassword: voteData.adminPassword,
       totalExpectedVoters: voteData.totalExpectedVoters,
       voteType: voteData.voteType,
       visibilitySetting: voteData.visibilitySetting,
+      allowEmptyVotes: voteData.allowEmptyVotes ?? false, // Default to false if not provided
       id: generateId(),
       createdAt: new Date().toISOString(),
       status: 'open',
@@ -81,11 +82,8 @@ export function useVoteStore() {
   }, []);
 
   const addSubmission = useCallback((submissionData: Omit<Submission, 'id' | 'submittedAt'>) => {
-    // voterAttendanceNumber is stored as submitted, regardless of anonymity,
-    // to allow for duplicate checking via hasVoted.
-    // Anonymity of results is handled in ResultsDisplay component.
     const newSubmission: Submission = {
-      ...submissionData, // This includes voterAttendanceNumber as entered
+      ...submissionData,
       id: generateId(),
       submittedAt: new Date().toISOString(),
     };
@@ -98,8 +96,6 @@ export function useVoteStore() {
   }, [submissions]);
 
   const hasVoted = useCallback((voteId: string, attendanceNumber: string): boolean => {
-    // This check now works for all vote types, including anonymous,
-    // as actual attendance numbers are stored.
     return submissions.some(s => s.voteId === voteId && s.voterAttendanceNumber === attendanceNumber);
   }, [submissions]);
   
@@ -107,8 +103,6 @@ export function useVoteStore() {
     const vote = getVoteById(voteId);
     if (!vote) return [];
 
-    // This logic now applies to all vote types, including anonymous.
-    // The ResultsDisplay component handles anonymity for vote choices.
     const voteSubmissions = getSubmissionsByVoteId(voteId);
     const votedNumbers = new Set(voteSubmissions.map(s => s.voterAttendanceNumber));
     
@@ -136,4 +130,3 @@ export function useVoteStore() {
     isLoaded,
   };
 }
-
