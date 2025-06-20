@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useEffect, useCallback } from 'react';
@@ -26,7 +27,7 @@ export function useVoteStore() {
         setSubmissions(JSON.parse(storedSubmissions));
       }
     } catch (error) {
-      console.error("Failed to load from localStorage", error);
+      console.error("localStorageからの読み込みに失敗しました", error);
     }
     setIsLoaded(true);
   }, []);
@@ -36,7 +37,7 @@ export function useVoteStore() {
       try {
         localStorage.setItem(VOTES_KEY, JSON.stringify(votes));
       } catch (error) {
-        console.error("Failed to save votes to localStorage", error);
+        console.error("投票データのlocalStorageへの保存に失敗しました", error);
       }
     }
   }, [votes, isLoaded]);
@@ -46,14 +47,18 @@ export function useVoteStore() {
       try {
         localStorage.setItem(SUBMISSIONS_KEY, JSON.stringify(submissions));
       } catch (error) {
-        console.error("Failed to save submissions to localStorage", error);
+        console.error("提出データのlocalStorageへの保存に失敗しました", error);
       }
     }
   }, [submissions, isLoaded]);
 
-  const addVote = useCallback((voteData: Omit<Vote, 'id' | 'createdAt' | 'status' | 'options'> & { options?: string[] }) => {
+  const addVote = useCallback((voteData: Omit<Vote, 'id' | 'createdAt' | 'status' | 'options' | 'creatorAttendanceNumber'> & { options?: string[], adminPassword: string }) => {
     const newVote: Vote = {
-      ...voteData,
+      title: voteData.title,
+      adminPassword: voteData.adminPassword,
+      totalExpectedVoters: voteData.totalExpectedVoters,
+      voteType: voteData.voteType,
+      visibilitySetting: voteData.visibilitySetting,
       id: generateId(),
       createdAt: new Date().toISOString(),
       status: 'open',
@@ -101,8 +106,9 @@ export function useVoteStore() {
     const votedNumbers = new Set(voteSubmissions.map(s => s.voterAttendanceNumber));
     
     const unvoted: string[] = [];
+    // Assuming attendance numbers are 1-indexed integers up to totalExpectedVoters
     for (let i = 1; i <= vote.totalExpectedVoters; i++) {
-      const attendanceStr = i.toString();
+      const attendanceStr = i.toString(); 
       if (!votedNumbers.has(attendanceStr)) {
         unvoted.push(attendanceStr);
       }
@@ -121,6 +127,6 @@ export function useVoteStore() {
     getSubmissionsByVoteId,
     hasVoted,
     getUnvotedAttendanceNumbers,
-    isLoaded, // To allow components to wait for localStorage hydration
+    isLoaded,
   };
 }

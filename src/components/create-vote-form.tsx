@@ -1,3 +1,4 @@
+
 "use client"
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -30,11 +31,11 @@ import { PlusCircle, Trash2, ArrowRight } from "lucide-react";
 import type { VoteType, VisibilitySetting } from "@/lib/store-types";
 
 const voteFormSchema = z.object({
-  title: z.string().min(3, { message: "Title must be at least 3 characters." }).max(100),
-  creatorAttendanceNumber: z.string().min(1, { message: "Your attendance number is required." }),
-  totalExpectedVoters: z.coerce.number().int().min(1, { message: "Must be at least 1 voter." }),
+  title: z.string().min(3, { message: "タイトルは3文字以上で入力してください。" }).max(100),
+  adminPassword: z.string().length(4, { message: "管理用パスワードは4桁の数字で入力してください。" }).regex(/^\d{4}$/, { message: "管理用パスワードは4桁の数字で入力してください。" }),
+  totalExpectedVoters: z.coerce.number().int().min(1, { message: "最低1人の投票者が必要です。" }),
   voteType: z.enum(["free_text", "multiple_choice", "yes_no"]),
-  options: z.array(z.object({ text: z.string().min(1, "Option text cannot be empty.") })).optional(),
+  options: z.array(z.object({ text: z.string().min(1, "選択肢のテキストは空にできません。") })).optional(),
   visibilitySetting: z.enum(["everyone", "admin_only", "anonymous"]),
 }).refine(data => {
   if (data.voteType === "multiple_choice") {
@@ -42,7 +43,7 @@ const voteFormSchema = z.object({
   }
   return true;
 }, {
-  message: "Multiple choice votes require at least 2 options.",
+  message: "多肢選択式の投票には最低2つの選択肢が必要です。",
   path: ["options"],
 });
 
@@ -57,8 +58,8 @@ export function CreateVoteForm() {
     resolver: zodResolver(voteFormSchema),
     defaultValues: {
       title: "",
-      creatorAttendanceNumber: "",
-      totalExpectedVoters: 10,
+      adminPassword: "",
+      totalExpectedVoters: 38, // Default to 38
       voteType: "yes_no",
       options: [{ text: "" }, { text: "" }],
       visibilitySetting: "admin_only",
@@ -76,7 +77,7 @@ export function CreateVoteForm() {
     try {
       const voteDataForStore = {
         title: data.title,
-        creatorAttendanceNumber: data.creatorAttendanceNumber,
+        adminPassword: data.adminPassword,
         totalExpectedVoters: data.totalExpectedVoters,
         voteType: data.voteType as VoteType,
         visibilitySetting: data.visibilitySetting as VisibilitySetting,
@@ -85,25 +86,25 @@ export function CreateVoteForm() {
       
       const newVote = addVote(voteDataForStore);
       toast({
-        title: "Vote Created!",
-        description: `"${newVote.title}" is now open.`,
+        title: "投票が作成されました！",
+        description: `「${newVote.title}」が開始されました。`,
       });
       router.push(`/vote/${newVote.id}/admin`);
     } catch (error) {
       toast({
-        title: "Error",
-        description: "Could not create vote. Please try again.",
+        title: "エラー",
+        description: "投票を作成できませんでした。もう一度お試しください。",
         variant: "destructive",
       });
-      console.error("Failed to create vote:", error);
+      console.error("投票の作成に失敗しました:", error);
     }
   }
 
   return (
     <Card className="w-full max-w-2xl mx-auto shadow-xl">
       <CardHeader>
-        <CardTitle className="text-3xl font-headline text-primary">Create a New Vote</CardTitle>
-        <CardDescription>Fill in the details below to start a new class vote.</CardDescription>
+        <CardTitle className="text-3xl font-headline text-primary">新しい投票を作成</CardTitle>
+        <CardDescription>新しいクラス投票を開始するには、以下の詳細を入力してください。</CardDescription>
       </CardHeader>
       <CardContent>
         <Form {...form}>
@@ -113,9 +114,9 @@ export function CreateVoteForm() {
               name="title"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Vote Title</FormLabel>
+                  <FormLabel>投票タイトル</FormLabel>
                   <FormControl>
-                    <Input placeholder="e.g., Preferred Project Topic" {...field} autoComplete="off" />
+                    <Input placeholder="例：好きなプロジェクトのトピック" {...field} autoComplete="off" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -125,14 +126,14 @@ export function CreateVoteForm() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <FormField
                 control={form.control}
-                name="creatorAttendanceNumber"
+                name="adminPassword"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Your Attendance Number (Admin)</FormLabel>
+                    <FormLabel>管理用パスワード (4桁の数字)</FormLabel>
                     <FormControl>
-                      <Input type="text" placeholder="e.g., S123" {...field} autoComplete="off" />
+                      <Input type="password" placeholder="例: 1234" {...field} autoComplete="new-password" />
                     </FormControl>
-                    <FormDescription>This number identifies you as the vote admin.</FormDescription>
+                    <FormDescription>この投票を管理するための4桁の数字のパスワードです。</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -142,11 +143,11 @@ export function CreateVoteForm() {
                 name="totalExpectedVoters"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Total Expected Voters</FormLabel>
+                    <FormLabel>予想される総投票者数</FormLabel>
                     <FormControl>
                       <Input type="number" {...field} min="1" autoComplete="off" />
                     </FormControl>
-                    <FormDescription>Total number of students in the class.</FormDescription>
+                    <FormDescription>クラスの総生徒数。</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -158,17 +159,17 @@ export function CreateVoteForm() {
               name="voteType"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Vote Type</FormLabel>
+                  <FormLabel>投票タイプ</FormLabel>
                   <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select a vote type" />
+                        <SelectValue placeholder="投票タイプを選択" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="yes_no">Yes/No or Agree/Disagree</SelectItem>
-                      <SelectItem value="multiple_choice">Multiple Choice</SelectItem>
-                      <SelectItem value="free_text">Free Text Submission</SelectItem>
+                      <SelectItem value="yes_no">はい/いいえ または 賛成/反対</SelectItem>
+                      <SelectItem value="multiple_choice">多肢選択式</SelectItem>
+                      <SelectItem value="free_text">自由記述式</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -178,7 +179,7 @@ export function CreateVoteForm() {
 
             {voteType === "multiple_choice" && (
               <div className="space-y-4 p-4 border rounded-md bg-secondary/30">
-                <FormLabel className="text-base">Multiple Choice Options</FormLabel>
+                <FormLabel className="text-base">多肢選択式の選択肢</FormLabel>
                 {fields.map((field, index) => (
                   <FormField
                     control={form.control}
@@ -187,10 +188,10 @@ export function CreateVoteForm() {
                     render={({ field: optionField }) => (
                       <FormItem className="flex items-center space-x-2">
                         <FormControl>
-                          <Input {...optionField} placeholder={`Option ${index + 1}`} autoComplete="off" />
+                          <Input {...optionField} placeholder={`選択肢 ${index + 1}`} autoComplete="off" />
                         </FormControl>
                         {fields.length > 2 && (
-                          <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} aria-label="Remove option">
+                          <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} aria-label="選択肢を削除">
                             <Trash2 className="h-4 w-4 text-destructive" />
                           </Button>
                         )}
@@ -205,7 +206,7 @@ export function CreateVoteForm() {
                   size="sm"
                   onClick={() => append({ text: "" })}
                 >
-                  <PlusCircle className="mr-2 h-4 w-4" /> Add Option
+                  <PlusCircle className="mr-2 h-4 w-4" /> 選択肢を追加
                 </Button>
                  {form.formState.errors.options && <FormMessage>{form.formState.errors.options.message}</FormMessage>}
               </div>
@@ -216,27 +217,27 @@ export function CreateVoteForm() {
               name="visibilitySetting"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Vote Visibility</FormLabel>
+                  <FormLabel>投票の可視性</FormLabel>
                   <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select who can see individual votes" />
+                        <SelectValue placeholder="誰が個別の投票を見られるか選択" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="everyone">Everyone can see individual votes</SelectItem>
-                      <SelectItem value="admin_only">Only vote admin can see individual votes</SelectItem>
-                      <SelectItem value="anonymous">Individual votes are anonymous (only aggregated results)</SelectItem>
+                      <SelectItem value="everyone">全員が個別の投票を見られる</SelectItem>
+                      <SelectItem value="admin_only">投票管理者のみが個別の投票を見られる</SelectItem>
+                      <SelectItem value="anonymous">個別の投票は匿名（集計結果のみ）</SelectItem>
                     </SelectContent>
                   </Select>
-                  <FormDescription>Controls who can view detailed submissions.</FormDescription>
+                  <FormDescription>詳細な提出内容を誰が見られるかを制御します。</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
             />
 
             <Button type="submit" size="lg" className="w-full bg-accent hover:bg-accent/90 text-accent-foreground">
-              Create Vote <ArrowRight className="ml-2 h-5 w-5" />
+              投票を作成 <ArrowRight className="ml-2 h-5 w-5" />
             </Button>
           </form>
         </Form>
@@ -244,4 +245,3 @@ export function CreateVoteForm() {
     </Card>
   );
 }
-

@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useParams } from 'next/navigation';
@@ -28,13 +29,13 @@ export default function VotePage() {
       <div className="container mx-auto py-10 px-4">
         <Card className="w-full max-w-lg mx-auto text-center">
           <CardHeader>
-            <CardTitle>Vote Not Found</CardTitle>
+            <CardTitle>投票が見つかりません</CardTitle>
           </CardHeader>
           <CardContent>
             <AlertTriangle className="mx-auto h-12 w-12 text-destructive mb-4" />
-            <p>The vote you are looking for does not exist or has been removed.</p>
+            <p>お探しの投票は存在しないか、削除された可能性があります。</p>
             <Button asChild variant="link" className="mt-4">
-              <Link href="/">Go to Homepage</Link>
+              <Link href="/">トップページへ戻る</Link>
             </Button>
           </CardContent>
         </Card>
