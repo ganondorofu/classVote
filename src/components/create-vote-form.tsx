@@ -23,7 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch"; // Added Switch import
+import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useVoteStore } from "@/hooks/use-vote-store";
 import { useToast } from "@/hooks/use-toast";
@@ -38,14 +38,25 @@ const voteFormSchema = z.object({
   options: z.array(z.object({ text: z.string().min(1, "選択肢のテキストは空にできません。") })).optional(),
   visibilitySetting: z.enum(["everyone", "admin_only", "anonymous"]),
   allowEmptyVotes: z.boolean().optional(),
+  allowMultipleSelections: z.boolean().optional(),
+  allowAddingOptions: z.boolean().optional(),
 }).refine(data => {
   if (data.voteType === "multiple_choice") {
-    return data.options && data.options.length >= 2;
+    return data.options && data.options.length >= 1; // Allow 1 if adding options is possible, otherwise 2.
   }
   return true;
 }, {
-  message: "多肢選択式の投票には最低2つの選択肢が必要です。",
+  message: "多肢選択式の投票には最低1つの選択肢が必要です。",
   path: ["options"],
+}).refine(data => {
+  if (data.voteType === "multiple_choice" && !data.allowAddingOptions) {
+     return data.options && data.options.length >= 2;
+  }
+  return true;
+},
+{
+  message: "投票者による選択肢追加を許可しない場合、多肢選択式の投票には最低2つの選択肢が必要です。",
+  path: ["options"]
 });
 
 type VoteFormValues = z.infer<typeof voteFormSchema>;
@@ -65,6 +76,8 @@ export function CreateVoteForm() {
       options: [{ text: "" }, { text: "" }],
       visibilitySetting: "admin_only",
       allowEmptyVotes: false,
+      allowMultipleSelections: false,
+      allowAddingOptions: false,
     },
   });
 
@@ -84,7 +97,11 @@ export function CreateVoteForm() {
         voteType: data.voteType as VoteType,
         visibilitySetting: data.visibilitySetting as VisibilitySetting,
         allowEmptyVotes: data.allowEmptyVotes,
-        ...(data.voteType === "multiple_choice" && { options: data.options?.map(opt => opt.text) }),
+        ...(data.voteType === "multiple_choice" && { 
+            options: data.options?.map(opt => opt.text),
+            allowMultipleSelections: data.allowMultipleSelections,
+            allowAddingOptions: data.allowAddingOptions,
+        }),
       };
       
       const newVote = addVote(voteDataForStore);
@@ -163,7 +180,13 @@ export function CreateVoteForm() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>投票タイプ</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={(value) => {
+                    field.onChange(value);
+                    if (value !== 'multiple_choice') {
+                      form.setValue('allowMultipleSelections', false);
+                      form.setValue('allowAddingOptions', false);
+                    }
+                  }} defaultValue={field.value}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="投票タイプを選択" />
@@ -193,7 +216,7 @@ export function CreateVoteForm() {
                         <FormControl>
                           <Input {...optionField} placeholder={`選択肢 ${index + 1}`} autoComplete="off" />
                         </FormControl>
-                        {fields.length > 2 && (
+                        {fields.length > (form.getValues("allowAddingOptions") ? 1 : 2) && (
                           <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} aria-label="選択肢を削除">
                             <Trash2 className="h-4 w-4 text-destructive" />
                           </Button>
@@ -211,7 +234,48 @@ export function CreateVoteForm() {
                 >
                   <PlusCircle className="mr-2 h-4 w-4" /> 選択肢を追加
                 </Button>
-                 {form.formState.errors.options && <FormMessage>{form.formState.errors.options.message}</FormMessage>}
+                 {form.formState.errors.options && <FormMessage>{form.formState.errors.options.message || form.formState.errors.options.root?.message}</FormMessage>}
+                
+                <FormField
+                  control={form.control}
+                  name="allowMultipleSelections"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm bg-background">
+                      <div className="space-y-0.5">
+                        <FormLabel>複数選択を許可</FormLabel>
+                        <FormDescription>
+                          投票者が複数の選択肢を選べるようにします。
+                        </FormDescription>
+                      </div>
+                      <FormControl>
+                        <Switch
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="allowAddingOptions"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm bg-background">
+                      <div className="space-y-0.5">
+                        <FormLabel>投票者による選択肢の追加を許可</FormLabel>
+                        <FormDescription>
+                          投票者が新しい選択肢を提案できるようにします。
+                        </FormDescription>
+                      </div>
+                      <FormControl>
+                        <Switch
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
               </div>
             )}
 
