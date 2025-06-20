@@ -36,14 +36,15 @@ const attendanceSchema = z.object({
 type AttendanceFormValues = z.infer<typeof attendanceSchema>;
 
 const USER_OPTION_PREFIX = "USER_OPTION:";
-const INTERNAL_CUSTOM_OPTION_VALUE = "__INTERNAL_CUSTOM_OPTION__"; // For single-select custom radio
+const INTERNAL_CUSTOM_OPTION_VALUE = "__INTERNAL_CUSTOM_OPTION__"; 
 
 export function StudentVoteForm({ vote }: StudentVoteFormProps) {
   const { addSubmission, hasVoted } = useVoteStore();
   const { toast } = useToast();
   const [currentVoter, setCurrentVoter] = useState<number | null>(null);
   const [alreadyVoted, setAlreadyVoted] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(false); // For vote submission
+  const [isCheckingAttendance, setIsCheckingAttendance] = useState(false); // For attendance check
   const [showThankYou, setShowThankYou] = useState(false);
 
   const attendanceForm = useForm<AttendanceFormValues>({
@@ -70,16 +71,10 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
     } else if (currentVote.voteType === 'multiple_choice') {
       if (currentVote.allowMultipleSelections) {
         submissionValueSchema = z.array(z.string()); 
-        if (!currentVote.allowEmptyVotes) {
-          // This will be checked in the object-level refine or handleVoteSubmit
-          // to account for custom options.
-        }
       } else { 
         submissionValueSchema = z.string(); 
         if (currentVote.allowEmptyVotes) {
           submissionValueSchema = submissionValueSchema.optional();
-        } else {
-          // This will be checked in the object-level refine or handleVoteSubmit
         }
       }
     } else {
@@ -89,10 +84,10 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
     return z.object({
         submissionValue: submissionValueSchema,
         singleCustomOptionText: z.string().optional(), 
-        multipleCustomOptions: z.array(z.object({ text: z.string() })).optional(),
-    }).refine(data => { // Refinement for single custom option text
+        multipleCustomOptions: z.array(z.object({ text: z.string().max(100, "カスタム選択肢は100文字以内で入力してください。") })).optional(),
+    }).refine(data => { 
         if (currentVote.voteType === 'multiple_choice' && 
-            !currentVote.allowMultipleSelections && // Radio buttons
+            !currentVote.allowMultipleSelections && 
             currentVote.allowAddingOptions && 
             data.submissionValue === INTERNAL_CUSTOM_OPTION_VALUE && 
             !currentVote.allowEmptyVotes) {
@@ -130,13 +125,16 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
         singleCustomOptionText: "",
         multipleCustomOptions: [{ text: "" }],
       });
-      // Removed submissionForm.trigger() to prevent premature validation messages
     }
   }, [currentVoter, vote.id, hasVoted, submissionForm, vote.allowEmptyVotes, vote.voteType, vote.allowMultipleSelections, vote]);
 
 
-  const handleAttendanceSubmit = (data: AttendanceFormValues) => {
+  const handleAttendanceSubmit = async (data: AttendanceFormValues) => {
+    setIsCheckingAttendance(true);
+    // Simulate a brief check if needed, though usually this is very fast
+    // await new Promise(resolve => setTimeout(resolve, 200)); 
     setCurrentVoter(data.attendanceNumber);
+    setIsCheckingAttendance(false);
   };
 
   const handleVoteSubmit = async (data: VoteSubmissionValues) => {
@@ -149,8 +147,8 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
     if (vote.voteType === 'multiple_choice') {
         let selectedValues: string[] = [];
 
-        if (vote.allowMultipleSelections) { // Multi-select checkboxes
-            selectedValues = Array.isArray(data.submissionValue) ? [...data.submissionValue] : [];
+        if (vote.allowMultipleSelections) { 
+            selectedValues = Array.isArray(data.submissionValue) ? data.submissionValue.filter(v => v !== INTERNAL_CUSTOM_OPTION_VALUE) : []; // Filter out internal placeholder
             
             if (vote.allowAddingOptions && data.multipleCustomOptions) {
                 data.multipleCustomOptions.forEach(opt => {
@@ -159,7 +157,7 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
                     }
                 });
             }
-        } else { // Single-select radio buttons
+        } else { 
             if (data.submissionValue === INTERNAL_CUSTOM_OPTION_VALUE) {
                 if (vote.allowAddingOptions && data.singleCustomOptionText && data.singleCustomOptionText.trim() !== "") {
                     selectedValues = [`${USER_OPTION_PREFIX}${data.singleCustomOptionText.trim()}`];
@@ -192,7 +190,7 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
              setIsLoading(false);
              return;
         }
-    } else { // yes_no
+    } else { 
         finalSubmissionValue = data.submissionValue as string | undefined;
         if (finalSubmissionValue) {
             finalSelectedOptionsCount = 1;
@@ -212,13 +210,12 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
         return;
     }
     
-    // Ensure finalSubmissionValue is set if empty votes are allowed and no actual value was provided
     if (finalSelectedOptionsCount === 0 && vote.allowEmptyVotes) {
         if (vote.voteType === 'multiple_choice') {
             finalSubmissionValue = JSON.stringify([]);
         } else if (vote.voteType === 'free_text') {
             finalSubmissionValue = "";
-        } else { // yes_no, if allowEmptyVotes, submissionValue can be undefined
+        } else { 
             finalSubmissionValue = undefined;
         }
     }
@@ -326,7 +323,10 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
                   </FormItem>
                 )}
               />
-              <Button type="submit" className="w-full bg-primary hover:bg-primary/90">
+              <Button type="submit" className="w-full bg-primary hover:bg-primary/90" disabled={isCheckingAttendance}>
+                {isCheckingAttendance ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : null}
                 投票に進む
               </Button>
             </form>
@@ -386,7 +386,7 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
                 <FormItem className="space-y-3">
                   <FormLabel className="text-lg">あなたの投票:</FormLabel>
                   <FormControl>
-                    <div> 
+                    <div>
                       {vote.voteType === "free_text" && (
                         <Textarea placeholder="ここに回答を入力してください..." {...field} value={typeof field.value === 'string' ? field.value : ""} autoComplete="off" rows={5} />
                       )}
@@ -424,7 +424,6 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
                                 }}
                               />
                             ))}
-                            {/* Multiple custom options for multi-select */}
                             {vote.allowAddingOptions && (
                                 <div className="space-y-3 pt-2">
                                     <FormLabel className="text-sm font-medium">その他（自由記述の選択肢）:</FormLabel>
@@ -437,10 +436,10 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
                                                     <Input
                                                         type="text"
                                                         placeholder={`カスタム選択肢 ${index + 1}`}
+                                                        name={customTextField.name}
                                                         value={customTextField.value || ""}
                                                         onChange={customTextField.onChange}
                                                         onBlur={customTextField.onBlur}
-                                                        name={customTextField.name}
                                                         ref={customTextField.ref}
                                                         className="flex-1"
                                                     />
@@ -460,7 +459,7 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
                                 </div>
                             )}
                           </div>
-                        ) : (  // Single-select (RadioGroup)
+                        ) : ( 
                           <RadioGroup
                             onValueChange={field.onChange} 
                             value={typeof field.value === 'string' ? field.value : ""} 
@@ -474,7 +473,7 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
                                 <FormLabel className="font-normal text-base cursor-pointer flex-1">{option.text}</FormLabel>
                               </FormItem>
                             ))}
-                            {vote.allowAddingOptions && ( // Single custom option for radio
+                            {vote.allowAddingOptions && ( 
                                <FormField
                                 control={submissionForm.control}
                                 name="singleCustomOptionText"
@@ -483,7 +482,7 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
                                         <FormControl>
                                             <RadioGroupItem 
                                                 value={INTERNAL_CUSTOM_OPTION_VALUE} 
-                                                checked={field.value === INTERNAL_CUSTOM_OPTION_VALUE} 
+                                                id="custom-option-radio"
                                                 onClick={() => {
                                                    field.onChange(INTERNAL_CUSTOM_OPTION_VALUE); 
                                                 }}
