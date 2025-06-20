@@ -8,12 +8,15 @@ import { Badge } from "@/components/ui/badge";
 import { UnvotedList } from "./unvoted-list";
 import { ResultsDisplay } from "./results-display";
 import { useToast } from "@/hooks/use-toast";
-import { Lock, Unlock, Users, Info, BarChartBig, KeyRound } from "lucide-react";
+import { Lock, Unlock, Users, Info, BarChartBig, KeyRound, Eye } from "lucide-react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "../ui/card";
 import { Separator } from "../ui/separator";
+import { getVoteTypeDisplay, getVisibilityDisplay } from "@/components/vote-card"; // Import helpers
+import Link from "next/link";
+
 
 interface AdminPanelContentProps {
-  initialVote: Vote; // Changed from vote to initialVote for clarity
+  initialVote: Vote; 
 }
 
 export function AdminPanelContent({ initialVote }: AdminPanelContentProps) {
@@ -39,25 +42,6 @@ export function AdminPanelContent({ initialVote }: AdminPanelContentProps) {
     });
   };
   
-  const getVoteTypeDisplay = (type: Vote['voteType']) => {
-    switch (type) {
-      case 'free_text': return '自由記述';
-      case 'multiple_choice': return '多肢選択';
-      case 'yes_no': return 'はい/いいえ';
-      default: return '不明';
-    }
-  };
-
-  const getVisibilityDisplay = (setting: Vote['visibilitySetting']) => {
-    switch (setting) {
-        case 'everyone': return '全員に公開';
-        case 'admin_only': return '管理者のみ';
-        case 'anonymous': return '匿名';
-        default: return '不明';
-    }
-  };
-
-
   return (
     <div className="space-y-8">
       <Card className="shadow-lg">
@@ -77,7 +61,7 @@ export function AdminPanelContent({ initialVote }: AdminPanelContentProps) {
             公開設定: <Badge variant="outline">{getVisibilityDisplay(vote.visibilitySetting)}</Badge>
           </div>
         </CardContent>
-        <CardFooter>
+        <CardFooter className="flex flex-wrap gap-2 items-center">
           <Button onClick={handleToggleVoteStatus} variant={vote.status === 'open' ? 'destructive' : 'default'} className="min-w-[150px] group">
             {vote.status === "open" ? (
               <><Lock className="mr-2 h-4 w-4 group-hover:animate-ping" /> 投票を終了</>
@@ -85,9 +69,16 @@ export function AdminPanelContent({ initialVote }: AdminPanelContentProps) {
               <><Unlock className="mr-2 h-4 w-4 group-hover:animate-ping" /> 投票を再開</>
             )}
           </Button>
-           <Badge className="ml-4" variant={vote.status === 'open' ? 'secondary' : 'destructive'}>
+           <Badge className="ml-0 sm:ml-4" variant={vote.status === 'open' ? 'secondary' : 'destructive'}>
             ステータス: {vote.status === 'open' ? '受付中' : '終了'}
           </Badge>
+          {vote.status === 'closed' && (
+            <Button asChild variant="link" className="text-primary">
+              <Link href={`/vote/${vote.id}/results`}>
+                <Eye className="mr-1.5 h-4 w-4"/> 公開結果ページを見る
+              </Link>
+            </Button>
+          )}
         </CardFooter>
       </Card>
 

@@ -3,13 +3,30 @@
 
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { VoteCard } from "@/components/vote-card";
+import { VoteCard, getVoteTypeDisplay, getVisibilityDisplay } from "@/components/vote-card"; // Import helpers if needed elsewhere or keep them local
 import { useVoteStore } from "@/hooks/use-vote-store";
-import { PlusCircle, ListChecks } from "lucide-react";
+import { PlusCircle, ListChecks, Filter } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useState } from "react";
+import type { Vote } from "@/lib/store-types";
 
 export default function HomePage() {
   const { votes, isLoaded } = useVoteStore();
+  const [filterStatus, setFilterStatus] = useState<Vote['status'] | 'all'>('open');
+
+  const filteredVotes = votes
+    .filter(vote => {
+      if (filterStatus === 'all') return true;
+      return vote.status === filterStatus;
+    })
+    .sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+  const getEmptyStateMessage = () => {
+    if (filterStatus === 'open') return "現在、受付中の投票はありません。";
+    if (filterStatus === 'closed') return "終了した投票はありません。";
+    return "現在、アクティブな投票はありません。";
+  };
 
   return (
     <div className="container mx-auto py-8 px-4">
@@ -22,11 +39,27 @@ export default function HomePage() {
         </Button>
       </div>
 
+      <div className="mb-6">
+        <Tabs value={filterStatus} onValueChange={(value) => setFilterStatus(value as Vote['status'] | 'all')}>
+          <TabsList className="grid w-full grid-cols-3 md:w-auto md:inline-flex">
+            <TabsTrigger value="open" className="text-sm">
+              <Filter className="mr-2 h-4 w-4" /> 受付中
+            </TabsTrigger>
+            <TabsTrigger value="closed" className="text-sm">
+              <Filter className="mr-2 h-4 w-4" /> 終了
+            </TabsTrigger>
+            <TabsTrigger value="all" className="text-sm">
+              <Filter className="mr-2 h-4 w-4" /> すべて
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </div>
+
       {!isLoaded && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {[1, 2, 3].map((i) => (
             <div key={i} className="space-y-3">
-              <Skeleton className="h-[125px] w-full rounded-xl" />
+              <Skeleton className="h-[200px] w-full rounded-xl" />
               <div className="space-y-2">
                 <Skeleton className="h-4 w-[250px]" />
                 <Skeleton className="h-4 w-[200px]" />
@@ -36,17 +69,17 @@ export default function HomePage() {
         </div>
       )}
 
-      {isLoaded && votes.length === 0 && (
+      {isLoaded && filteredVotes.length === 0 && (
         <div className="text-center py-10">
           <ListChecks className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-          <p className="text-xl text-muted-foreground">現在、アクティブな投票はありません。</p>
-          <p className="text-muted-foreground">作成してみませんか？</p>
+          <p className="text-xl text-muted-foreground">{getEmptyStateMessage()}</p>
+          {filterStatus !== 'closed' && <p className="text-muted-foreground">作成してみませんか？</p>}
         </div>
       )}
 
-      {isLoaded && votes.length > 0 && (
+      {isLoaded && filteredVotes.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {votes.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map((vote) => (
+          {filteredVotes.map((vote) => (
             <VoteCard key={vote.id} vote={vote} />
           ))}
         </div>
