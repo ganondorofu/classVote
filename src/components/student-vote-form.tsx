@@ -36,6 +36,7 @@ const attendanceSchema = z.object({
 type AttendanceFormValues = z.infer<typeof attendanceSchema>;
 
 const USER_OPTION_PREFIX = "USER_OPTION:";
+const INTERNAL_CUSTOM_OPTION_VALUE = "__INTERNAL_CUSTOM_OPTION__";
 
 export function StudentVoteForm({ vote }: StudentVoteFormProps) {
   const { addSubmission, hasVoted } = useVoteStore();
@@ -44,43 +45,42 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
   const [alreadyVoted, setAlreadyVoted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showThankYou, setShowThankYou] = useState(false);
-  const [customOptionInput, setCustomOptionInput] = useState(""); // This seems separate from RHF's customOption
 
   const attendanceForm = useForm<AttendanceFormValues>({
     resolver: zodResolver(attendanceSchema),
     defaultValues: { attendanceNumber: undefined },
   });
 
-  // Dynamically create submission schema
-  const createVoteSubmissionSchema = (vote: Vote) => {
+  const createVoteSubmissionSchema = (currentVote: Vote) => {
     let submissionValueSchema;
 
-    if (vote.voteType === 'free_text') {
+    if (currentVote.voteType === 'free_text') {
       submissionValueSchema = z.string().max(500, "回答が長すぎます。500文字以内で入力してください。");
-      if (vote.allowEmptyVotes) {
+      if (currentVote.allowEmptyVotes) {
         submissionValueSchema = submissionValueSchema.optional().default("");
       } else {
         submissionValueSchema = submissionValueSchema.min(1, "回答を入力してください。");
       }
-    } else if (vote.voteType === 'yes_no') {
+    } else if (currentVote.voteType === 'yes_no') {
       submissionValueSchema = z.enum(["yes", "no"]);
-      if (vote.allowEmptyVotes) { 
+      if (currentVote.allowEmptyVotes) { 
         submissionValueSchema = submissionValueSchema.optional();
       } else {
          submissionValueSchema = z.enum(["yes", "no"], {required_error: "「はい」または「いいえ」を選択してください。"});
       }
-    } else if (vote.voteType === 'multiple_choice') {
-      if (vote.allowMultipleSelections) {
-        submissionValueSchema = z.array(z.string());
-        if (!vote.allowEmptyVotes) {
+    } else if (currentVote.voteType === 'multiple_choice') {
+      if (currentVote.allowMultipleSelections) {
+        submissionValueSchema = z.array(z.string()); // Array of option IDs or prefixed custom values
+        if (!currentVote.allowEmptyVotes) {
           submissionValueSchema = submissionValueSchema.min(1, "少なくとも1つ選択してください。");
         }
       } else { 
-        submissionValueSchema = z.string();
-        if (vote.allowEmptyVotes) {
+        // Single select: can be an option ID or INTERNAL_CUSTOM_OPTION_VALUE
+        submissionValueSchema = z.string(); 
+        if (currentVote.allowEmptyVotes) {
           submissionValueSchema = submissionValueSchema.optional();
         } else {
-          submissionValueSchema = submissionValueSchema.min(1, "選択肢を選んでください。");
+          submissionValueSchema = submissionValueSchema.min(1, "選択肢を選ぶか、その他を指定してください。");
         }
       }
     } else {
@@ -90,6 +90,19 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
     return z.object({
         submissionValue: submissionValueSchema,
         customOption: z.string().optional(), 
+    }).refine(data => {
+        // Refinement for single-select multiple choice with custom option
+        if (currentVote.voteType === 'multiple_choice' && 
+            !currentVote.allowMultipleSelections && 
+            currentVote.allowAddingOptions && 
+            data.submissionValue === INTERNAL_CUSTOM_OPTION_VALUE && 
+            !currentVote.allowEmptyVotes) {
+            return data.customOption && data.customOption.trim() !== "";
+        }
+        return true;
+    }, {
+        message: "「その他」を選択した場合は、内容を記入してください。",
+        path: ["customOption"], // Error will be shown on customOption field
     });
   };
   
@@ -111,7 +124,6 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
         submissionValue: vote.allowMultipleSelections ? [] : (vote.allowEmptyVotes ? undefined : (vote.voteType === 'yes_no' ? undefined : "")),
         customOption: "",
       });
-      setCustomOptionInput("");
     }
   }, [currentVoter, vote.id, hasVoted, submissionForm, vote.allowEmptyVotes, vote.voteType, vote.allowMultipleSelections]);
 
@@ -128,25 +140,35 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
 
     if (vote.voteType === 'multiple_choice') {
         let selectedValues: string[] = [];
-        if (vote.allowMultipleSelections) {
+
+        if (vote.allowMultipleSelections) { // Multi-select checkboxes
             selectedValues = Array.isArray(data.submissionValue) ? data.submissionValue : [];
-        } else { 
-            if (typeof data.submissionValue === 'string' && data.submissionValue) {
-                selectedValues = [data.submissionValue];
-            }
-        }
-        
-        if (vote.allowAddingOptions && data.customOption && data.customOption.trim() !== "") {
-            const customValue = `${USER_OPTION_PREFIX}${data.customOption.trim()}`;
-             if (vote.allowMultipleSelections) {
+            if (vote.allowAddingOptions && data.customOption && data.customOption.trim() !== "") {
+                const customValue = `${USER_OPTION_PREFIX}${data.customOption.trim()}`;
+                // Check if the placeholder for custom option was selected
                 const customPlaceholderIndex = selectedValues.indexOf("___custom_option_checkbox_value___");
                 if (customPlaceholderIndex > -1) {
-                    selectedValues.splice(customPlaceholderIndex, 1, customValue);
+                    selectedValues.splice(customPlaceholderIndex, 1, customValue); // Replace placeholder
                 } else if (!selectedValues.includes(customValue)) {
-                     selectedValues.push(customValue);
+                     // This case might not be reached if checkbox drives addition
                 }
-            } else { 
-                 selectedValues = [customValue]; 
+            }
+             // Filter out placeholder if text field was empty but checkbox checked
+            selectedValues = selectedValues.filter(v => v !== "___custom_option_checkbox_value___" || (data.customOption && data.customOption.trim() !== ""));
+
+        } else { // Single-select radio buttons
+            if (data.submissionValue === INTERNAL_CUSTOM_OPTION_VALUE) {
+                if (vote.allowAddingOptions && data.customOption && data.customOption.trim() !== "") {
+                    selectedValues = [`${USER_OPTION_PREFIX}${data.customOption.trim()}`];
+                } else if (vote.allowEmptyVotes) {
+                    selectedValues = []; // Empty vote if custom selected but no text and empty allowed
+                } else {
+                     submissionForm.setError("customOption", { type: "manual", message: "「その他」を選択した場合は、内容を記入してください。" });
+                     setIsLoading(false);
+                     return;
+                }
+            } else if (typeof data.submissionValue === 'string' && data.submissionValue) {
+                selectedValues = [data.submissionValue]; // Standard option ID
             }
         }
         
@@ -164,7 +186,7 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
              setIsLoading(false);
              return;
         }
-    } else { 
+    } else { // yes_no
         finalSubmissionValue = data.submissionValue as string | undefined;
          if (!vote.allowEmptyVotes && finalSubmissionValue === undefined) {
              submissionForm.setError("submissionValue", { type: "manual", message: "「はい」または「いいえ」を選択してください。" });
@@ -179,7 +201,6 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
         setIsLoading(false);
         return;
     }
-
 
     await new Promise(resolve => setTimeout(resolve, 500));
 
@@ -277,7 +298,7 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
                   <FormItem>
                     <FormLabel>出席番号 (例: 1～{vote.totalExpectedVoters})</FormLabel>
                     <FormControl>
-                      <Input type="number" placeholder={`例: 10`} {...field} autoComplete="off" min="1" max={vote.totalExpectedVoters.toString()} />
+                      <Input type="number" placeholder={`例: 10`} value={field.value ?? ""} onChange={field.onChange} onBlur={field.onBlur} name={field.name} ref={field.ref} autoComplete="off" min="1" max={vote.totalExpectedVoters.toString()} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -302,9 +323,9 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
         <CardContent>
           <CheckCircle className="mx-auto h-12 w-12 text-green-500 mb-4" />
           <p className="text-xl">出席番号 {currentVoter} は、この投票に既に投票済みです。</p>
-          {vote.visibilitySetting !== 'anonymous' ? (
+          {vote.visibilitySetting !== 'anonymous' && (
              <p className="text-muted-foreground mt-2">投票内容を変更したい場合は、管理者に連絡して投票のリセットを依頼してください。</p>
-          ) : null}
+          )}
           <p className="text-muted-foreground mt-2">ご協力ありがとうございました！</p>
         </CardContent>
          <CardFooter className="flex justify-center">
@@ -339,7 +360,7 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
             <FormField
               control={submissionForm.control}
               name="submissionValue"
-              render={({ field }) => ( // 'field' here is for 'submissionValue'
+              render={({ field }) => ( 
                 <FormItem className="space-y-3">
                   <FormLabel className="text-lg">あなたの投票:</FormLabel>
                   <FormControl>
@@ -348,14 +369,14 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
                         <Textarea placeholder="ここに回答を入力してください..." {...field} value={typeof field.value === 'string' ? field.value : ""} autoComplete="off" rows={5} />
                       )}
                       {vote.voteType === "multiple_choice" && vote.options && (
-                        vote.allowMultipleSelections ? (
+                        vote.allowMultipleSelections ? ( // Checkboxes for multi-select
                           <div className="space-y-2">
                             {vote.options.map((option) => (
                               <FormField
                                 key={option.id}
                                 control={submissionForm.control}
                                 name="submissionValue" 
-                                render={({ field: checkboxField }) => { // 'checkboxField' is for 'submissionValue' (as array)
+                                render={({ field: checkboxField }) => { 
                                   const currentValues = Array.isArray(checkboxField.value) ? checkboxField.value : [];
                                   return (
                                     <FormItem className="flex flex-row items-start space-x-3 space-y-0 p-3 border rounded-md hover:bg-secondary/50 transition-colors">
@@ -385,40 +406,48 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
                                <FormField
                                 control={submissionForm.control}
                                 name="customOption" 
-                                render={({ field: customTextField }) => ( // 'customTextField' is for 'customOption'
+                                render={({ field: customTextField }) => ( 
                                     <FormItem className="flex flex-row items-start space-x-3 space-y-0 p-3 border rounded-md hover:bg-secondary/50 transition-colors">
                                     <FormControl>
                                         <Checkbox
-                                        checked={Array.isArray(field.value) && field.value.includes("___custom_option_checkbox_value___")} // 'field.value' here is submissionValue
+                                        // Checkbox state for "custom option" itself
+                                        checked={Array.isArray(field.value) && field.value.includes("___custom_option_checkbox_value___")}
                                         onCheckedChange={(checked) => {
-                                            const currentValues = Array.isArray(field.value) ? field.value : [];
-                                            return checked
-                                            ? field.onChange([...currentValues, "___custom_option_checkbox_value___"]) // Changes submissionValue
-                                            : field.onChange(currentValues.filter(v => v !== "___custom_option_checkbox_value___"));
+                                            const currentSubmissionValues = Array.isArray(field.value) ? field.value : [];
+                                            if (checked) {
+                                                field.onChange([...currentSubmissionValues, "___custom_option_checkbox_value___"]);
+                                            } else {
+                                                field.onChange(currentSubmissionValues.filter(v => v !== "___custom_option_checkbox_value___"));
+                                                customTextField.onChange(""); // Clear text if custom checkbox unchecked
+                                            }
                                         }}
                                         />
                                     </FormControl>
                                     <Input
                                         type="text"
                                         placeholder="その他（ここに記入）"
-                                        {...customTextField}
-                                        value={customTextField.value || ""} // Ensure controlled
-                                        className="flex-1"
-                                        onFocus={() => { 
-                                            const currentValues = Array.isArray(field.value) ? field.value : []; // field.value is submissionValue
-                                            if (!currentValues.includes("___custom_option_checkbox_value___")) {
-                                                field.onChange([...currentValues, "___custom_option_checkbox_value___"]); // Changes submissionValue
+                                        name={customTextField.name}
+                                        value={customTextField.value || ""}
+                                        onChange={(e) => {
+                                            customTextField.onChange(e);
+                                            // Ensure custom option checkbox is selected if user types
+                                            const currentSubmissionValues = Array.isArray(field.value) ? field.value : [];
+                                            if (e.target.value && !currentSubmissionValues.includes("___custom_option_checkbox_value___")) {
+                                               field.onChange([...currentSubmissionValues, "___custom_option_checkbox_value___"]);
                                             }
                                         }}
+                                        onBlur={customTextField.onBlur}
+                                        ref={customTextField.ref}
+                                        className="flex-1"
                                     />
                                     </FormItem>
                                 )}
                                 />
                             )}
                           </div>
-                        ) : (
+                        ) : ( // RadioGroup for single-select
                           <RadioGroup
-                            onValueChange={field.onChange} // Changes submissionValue
+                            onValueChange={field.onChange} 
                             value={typeof field.value === 'string' ? field.value : ""} 
                             className="flex flex-col space-y-2"
                           >
@@ -434,26 +463,38 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
                                <FormField
                                 control={submissionForm.control}
                                 name="customOption"
-                                render={({ field: customTextField }) => ( // 'customTextField' is for 'customOption'
+                                render={({ field: customTextField }) => ( 
                                     <FormItem className="flex items-center space-x-3 space-y-0 p-3 border rounded-md hover:bg-secondary/50 transition-colors">
                                         <FormControl>
-                                            <RadioGroupItem value={`${USER_OPTION_PREFIX}${customTextField.value || "placeholder"}`} 
-                                                checked={!!customTextField.value} 
-                                                onClick={() => { 
-                                                    if (!customTextField.value) field.onChange(undefined); // Changes submissionValue
+                                            <RadioGroupItem 
+                                                value={INTERNAL_CUSTOM_OPTION_VALUE} 
+                                                checked={field.value === INTERNAL_CUSTOM_OPTION_VALUE} // submissionValue check
+                                                onClick={() => {
+                                                   field.onChange(INTERNAL_CUSTOM_OPTION_VALUE); // Set submissionValue
                                                 }}
                                             />
                                         </FormControl>
                                         <Input
                                             type="text"
                                             placeholder="その他（ここに記入）"
-                                            {...customTextField}
-                                            value={customTextField.value || ""} // Ensure controlled
-                                            className="flex-1"
-                                            onFocus={() => field.onChange(undefined)} // Changes submissionValue
-                                            onChange={(e) => { 
+                                            name={customTextField.name}
+                                            value={customTextField.value || ""}
+                                            onChange={(e) => {
                                                 customTextField.onChange(e);
+                                                // If user types, ensure custom radio is selected
+                                                if (field.value !== INTERNAL_CUSTOM_OPTION_VALUE) {
+                                                    field.onChange(INTERNAL_CUSTOM_OPTION_VALUE);
+                                                }
                                             }}
+                                            onFocus={() => {
+                                                // If not already selected, select custom radio on focus
+                                                if (field.value !== INTERNAL_CUSTOM_OPTION_VALUE) {
+                                                    field.onChange(INTERNAL_CUSTOM_OPTION_VALUE);
+                                                }
+                                            }}
+                                            onBlur={customTextField.onBlur}
+                                            ref={customTextField.ref}
+                                            className="flex-1"
                                         />
                                     </FormItem>
                                 )}
@@ -481,6 +522,8 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
                     </>
                   </FormControl>
                   <FormMessage />
+                  {/* Display customOption error specifically if it's the source */}
+                  {submissionForm.formState.errors.customOption && <FormMessage>{submissionForm.formState.errors.customOption.message}</FormMessage>}
                 </FormItem>
               )}
             />
@@ -499,3 +542,5 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
     </Card>
   );
 }
+
+    
