@@ -81,50 +81,34 @@ export function useVoteStore() {
   }, []);
 
   const addSubmission = useCallback((submissionData: Omit<Submission, 'id' | 'submittedAt'>) => {
-    const vote = getVoteById(submissionData.voteId);
-    
-    const voterIdentifier = (vote && vote.visibilitySetting === 'anonymous')
-      ? 'ANONYMOUS_VOTER' // Generic placeholder for anonymous votes
-      : submissionData.voterAttendanceNumber; // Actual attendance number for non-anonymous
-
+    // voterAttendanceNumber is stored as submitted, regardless of anonymity,
+    // to allow for duplicate checking via hasVoted.
+    // Anonymity of results is handled in ResultsDisplay component.
     const newSubmission: Submission = {
-      ...submissionData,
-      voterAttendanceNumber: voterIdentifier,
+      ...submissionData, // This includes voterAttendanceNumber as entered
       id: generateId(),
       submittedAt: new Date().toISOString(),
     };
     setSubmissions(prevSubmissions => [...prevSubmissions, newSubmission]);
     return newSubmission;
-  }, [getVoteById]);
+  }, []);
 
   const getSubmissionsByVoteId = useCallback((voteId: string): Submission[] => {
     return submissions.filter(submission => submission.voteId === voteId);
   }, [submissions]);
 
   const hasVoted = useCallback((voteId: string, attendanceNumber: string): boolean => {
-    // For anonymous votes, this check effectively won't prevent re-submission under the same attendance number
-    // because the stored attendance number is "ANONYMOUS_VOTER".
-    // This is a trade-off for full anonymity in storage.
-    const vote = getVoteById(voteId);
-    if (vote && vote.visibilitySetting === 'anonymous') {
-      return false; // Cannot determine if a specific student has voted in an anonymous poll.
-    }
+    // This check now works for all vote types, including anonymous,
+    // as actual attendance numbers are stored.
     return submissions.some(s => s.voteId === voteId && s.voterAttendanceNumber === attendanceNumber);
-  }, [submissions, getVoteById]);
+  }, [submissions]);
   
   const getUnvotedAttendanceNumbers = useCallback((voteId: string): string[] => {
     const vote = getVoteById(voteId);
     if (!vote) return [];
 
-    // If vote is anonymous, all are considered unvoted from tracking perspective
-    if (vote.visibilitySetting === 'anonymous') {
-        const allNumbers: string[] = [];
-        for (let i = 1; i <= vote.totalExpectedVoters; i++) {
-            allNumbers.push(i.toString());
-        }
-        return allNumbers;
-    }
-
+    // This logic now applies to all vote types, including anonymous.
+    // The ResultsDisplay component handles anonymity for vote choices.
     const voteSubmissions = getSubmissionsByVoteId(voteId);
     const votedNumbers = new Set(voteSubmissions.map(s => s.voterAttendanceNumber));
     
