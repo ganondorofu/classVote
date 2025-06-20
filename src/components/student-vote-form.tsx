@@ -36,7 +36,7 @@ const attendanceSchema = z.object({
 type AttendanceFormValues = z.infer<typeof attendanceSchema>;
 
 const USER_OPTION_PREFIX = "USER_OPTION:";
-const INTERNAL_CUSTOM_OPTION_VALUE = "__INTERNAL_CUSTOM_OPTION__"; 
+const INTERNAL_CUSTOM_OPTION_VALUE = "__INTERNAL_CUSTOM_OPTION__";
 
 export function StudentVoteForm({ vote }: StudentVoteFormProps) {
   const { addSubmission, hasVoted } = useVoteStore();
@@ -63,33 +63,40 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
         submissionValueSchema = submissionValueSchema.min(1, "回答を入力してください。");
       }
     } else if (currentVote.voteType === 'yes_no') {
-      if (currentVote.allowEmptyVotes) { 
+      if (currentVote.allowEmptyVotes) {
         submissionValueSchema = z.enum(["yes", "no"]).optional();
       } else {
          submissionValueSchema = z.enum(["yes", "no"], {required_error: "「はい」または「いいえ」を選択してください。"});
       }
     } else if (currentVote.voteType === 'multiple_choice') {
       if (currentVote.allowMultipleSelections) {
-        submissionValueSchema = z.array(z.string()); 
-      } else { 
-        submissionValueSchema = z.string(); 
+        // For multi-select, submissionValue is an array of strings
+        submissionValueSchema = z.array(z.string());
+        if (!currentVote.allowEmptyVotes) {
+          submissionValueSchema = submissionValueSchema.min(1, { message: "少なくとも1つの選択肢を選んでください。" });
+        }
+      } else {
+        // For single-select multiple choice, submissionValue is a string (option ID or custom marker)
         if (currentVote.allowEmptyVotes) {
-          submissionValueSchema = submissionValueSchema.optional();
+          submissionValueSchema = z.string().optional(); // Allows undefined or a string
+        } else {
+          submissionValueSchema = z.string({ required_error: "選択肢を選んでください。" })
+                                   .min(1, { message: "選択肢を選んでください。" });
         }
       }
     } else {
-      submissionValueSchema = z.any(); 
+      submissionValueSchema = z.any();
     }
-    
+
     return z.object({
         submissionValue: submissionValueSchema,
-        singleCustomOptionText: z.string().optional(), 
+        singleCustomOptionText: z.string().max(100, "カスタム選択肢は100文字以内で入力してください。").optional(),
         multipleCustomOptions: z.array(z.object({ text: z.string().max(100, "カスタム選択肢は100文字以内で入力してください。") })).optional(),
-    }).refine(data => { 
-        if (currentVote.voteType === 'multiple_choice' && 
-            !currentVote.allowMultipleSelections && 
-            currentVote.allowAddingOptions && 
-            data.submissionValue === INTERNAL_CUSTOM_OPTION_VALUE && 
+    }).refine(data => {
+        if (currentVote.voteType === 'multiple_choice' &&
+            !currentVote.allowMultipleSelections &&
+            currentVote.allowAddingOptions &&
+            data.submissionValue === INTERNAL_CUSTOM_OPTION_VALUE &&
             !currentVote.allowEmptyVotes) {
             return data.singleCustomOptionText && data.singleCustomOptionText.trim() !== "";
         }
@@ -97,15 +104,32 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
     }, {
         message: "「その他」を選択した場合は、内容を記入してください。",
         path: ["singleCustomOptionText"],
+    }).refine(data => { // Refinement for multi-select custom options
+        if (currentVote.voteType === 'multiple_choice' &&
+            currentVote.allowMultipleSelections &&
+            currentVote.allowAddingOptions &&
+            !currentVote.allowEmptyVotes) {
+            
+            const hasPredefinedSelection = Array.isArray(data.submissionValue) && data.submissionValue.some(val => val !== INTERNAL_CUSTOM_OPTION_VALUE);
+            const hasValidCustomSelection = data.multipleCustomOptions?.some(opt => opt.text.trim() !== "");
+
+            if (hasPredefinedSelection || hasValidCustomSelection) return true;
+
+            // If only INTERNAL_CUSTOM_OPTION_VALUE was in submissionValue (it's filtered out now)
+            // and no valid custom options are provided, this means nothing was effectively selected.
+            // This case should be covered by the array.min(1) on submissionValue itself if we include custom options there.
+            // For now, let's assume the combined check on selectedValues in handleVoteSubmit is sufficient.
+        }
+        return true;
     });
   };
-  
+
   type VoteSubmissionValues = z.infer<ReturnType<typeof createVoteSubmissionSchema>>;
 
   const submissionForm = useForm<VoteSubmissionValues>({
     resolver: zodResolver(createVoteSubmissionSchema(vote)),
     defaultValues: {
-      submissionValue: vote.allowMultipleSelections ? [] : (vote.allowEmptyVotes ? undefined : (vote.voteType === 'yes_no' ? undefined : "")),
+      submissionValue: (vote.voteType === 'multiple_choice' && vote.allowMultipleSelections) ? [] : undefined,
       singleCustomOptionText: "",
       multipleCustomOptions: [{ text: "" }],
     }
@@ -120,19 +144,26 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
   useEffect(() => {
     if (currentVoter !== null) {
       setAlreadyVoted(hasVoted(vote.id, currentVoter.toString()));
-      submissionForm.reset({ 
-        submissionValue: vote.allowMultipleSelections ? [] : (vote.allowEmptyVotes ? undefined : (vote.voteType === 'yes_no' ? undefined : "")),
+      
+      let defaultSubmissionVal;
+      if (vote.voteType === 'multiple_choice' && vote.allowMultipleSelections) {
+        defaultSubmissionVal = []; // For multi-select checkboxes
+      } else { // For single-select (RadioGroup: yes/no, single-select MC)
+        defaultSubmissionVal = undefined; // Represents no selection initially
+      }
+
+      submissionForm.reset({
+        submissionValue: defaultSubmissionVal,
         singleCustomOptionText: "",
         multipleCustomOptions: [{ text: "" }],
       });
+      // No explicit submissionForm.trigger() here to avoid premature validation messages
     }
-  }, [currentVoter, vote.id, hasVoted, submissionForm, vote.allowEmptyVotes, vote.voteType, vote.allowMultipleSelections, vote]);
+  }, [currentVoter, vote.id, hasVoted, submissionForm, vote.voteType, vote.allowMultipleSelections, vote.options]);
 
 
   const handleAttendanceSubmit = async (data: AttendanceFormValues) => {
     setIsCheckingAttendance(true);
-    // Simulate a brief check if needed, though usually this is very fast
-    // await new Promise(resolve => setTimeout(resolve, 200)); 
     setCurrentVoter(data.attendanceNumber);
     setIsCheckingAttendance(false);
   };
@@ -140,16 +171,16 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
   const handleVoteSubmit = async (data: VoteSubmissionValues) => {
     if (currentVoter === null) return;
     setIsLoading(true);
-    
+
     let finalSubmissionValue: string | undefined;
     let finalSelectedOptionsCount = 0;
 
     if (vote.voteType === 'multiple_choice') {
         let selectedValues: string[] = [];
 
-        if (vote.allowMultipleSelections) { 
-            selectedValues = Array.isArray(data.submissionValue) ? data.submissionValue.filter(v => v !== INTERNAL_CUSTOM_OPTION_VALUE) : []; // Filter out internal placeholder
-            
+        if (vote.allowMultipleSelections) {
+            selectedValues = Array.isArray(data.submissionValue) ? data.submissionValue.filter(v => v !== INTERNAL_CUSTOM_OPTION_VALUE) : [];
+
             if (vote.allowAddingOptions && data.multipleCustomOptions) {
                 data.multipleCustomOptions.forEach(opt => {
                     if (opt.text.trim() !== "") {
@@ -157,27 +188,25 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
                     }
                 });
             }
-        } else { 
+        } else { // Single-select multiple choice
             if (data.submissionValue === INTERNAL_CUSTOM_OPTION_VALUE) {
                 if (vote.allowAddingOptions && data.singleCustomOptionText && data.singleCustomOptionText.trim() !== "") {
                     selectedValues = [`${USER_OPTION_PREFIX}${data.singleCustomOptionText.trim()}`];
                 } else if (vote.allowEmptyVotes) {
-                    selectedValues = []; 
+                    selectedValues = [];
                 } else {
-                     submissionForm.setError("singleCustomOptionText", { type: "manual", message: "「その他」を選択した場合は、内容を記入してください。" });
-                     setIsLoading(false);
-                     return;
+                     // Error already handled by Zod refinement or will be caught by final check
                 }
             } else if (typeof data.submissionValue === 'string' && data.submissionValue) {
-                selectedValues = [data.submissionValue]; 
+                selectedValues = [data.submissionValue];
             }
         }
-        
+
         finalSelectedOptionsCount = selectedValues.length;
         if (finalSelectedOptionsCount > 0) {
             finalSubmissionValue = JSON.stringify(selectedValues);
         } else if (vote.allowEmptyVotes) {
-            finalSubmissionValue = JSON.stringify([]);
+            finalSubmissionValue = JSON.stringify([]); // Empty array for empty multi-choice vote
         }
 
     } else if (vote.voteType === 'free_text') {
@@ -185,49 +214,49 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
         if (finalSubmissionValue.trim() !== "") {
             finalSelectedOptionsCount = 1;
         }
-        if (!vote.allowEmptyVotes && finalSubmissionValue.trim() === "") {
-             submissionForm.setError("submissionValue", { type: "manual", message: "回答を入力してください。" });
-             setIsLoading(false);
-             return;
-        }
-    } else { 
+        // Zod handles empty check if !allowEmptyVotes
+    } else { // yes_no
         finalSubmissionValue = data.submissionValue as string | undefined;
         if (finalSubmissionValue) {
             finalSelectedOptionsCount = 1;
         }
-         if (!vote.allowEmptyVotes && finalSubmissionValue === undefined) {
-             submissionForm.setError("submissionValue", { type: "manual", message: "「はい」または「いいえ」を選択してください。" });
-             setIsLoading(false);
-             return;
-        }
+        // Zod handles empty check if !allowEmptyVotes
     }
 
 
     if (finalSelectedOptionsCount === 0 && !vote.allowEmptyVotes) {
-        toast({ title: "エラー", description: "少なくとも1つの選択肢を選ぶか、内容を記入してください。", variant: "destructive" });
-        setIsLoading(false);
-        submissionForm.setError("submissionValue", { type: "manual", message: "少なくとも1つの選択肢を選ぶか、内容を記入してください。" });
-        return;
+      // This generic check might be too late if Zod already caught specific errors.
+      // However, it's a good fallback. The Zod messages are usually more specific.
+      // submissionForm.setError might not be needed if Zod is configured correctly.
+      // For now, we rely on Zod and this is a safety net before submission.
+      if ( (vote.voteType === 'multiple_choice' && finalSubmissionValue === undefined) || /* for MC it's stringified array or undefined */
+           (vote.voteType !== 'multiple_choice' && finalSubmissionValue === undefined) )
+      {
+          toast({ title: "エラー", description: "回答を選択または入力してください。", variant: "destructive" });
+          setIsLoading(false);
+          return;
+      }
     }
     
+    // Ensure finalSubmissionValue is correctly set for empty allowed votes
     if (finalSelectedOptionsCount === 0 && vote.allowEmptyVotes) {
         if (vote.voteType === 'multiple_choice') {
             finalSubmissionValue = JSON.stringify([]);
         } else if (vote.voteType === 'free_text') {
-            finalSubmissionValue = "";
-        } else { 
-            finalSubmissionValue = undefined;
+            finalSubmissionValue = ""; // Empty string for empty free text
+        } else { // yes_no
+            finalSubmissionValue = undefined; // Undefined for empty yes/no
         }
     }
 
 
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await new Promise(resolve => setTimeout(resolve, 500)); // Simulate submission delay
 
     try {
       addSubmission({
         voteId: vote.id,
         voterAttendanceNumber: currentVoter.toString(),
-        submissionValue: finalSubmissionValue, 
+        submissionValue: finalSubmissionValue,
       });
       toast({
         title: "投票完了！",
@@ -246,7 +275,7 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
       setIsLoading(false);
     }
   };
-  
+
   const getVisibilityDisplay = (setting: Vote['visibilitySetting']) => {
     switch (setting) {
         case 'everyone': return '全員に公開';
@@ -358,7 +387,7 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
       </Card>
     );
   }
-  
+
 
   return (
     <Card className="w-full max-w-lg mx-auto shadow-xl">
@@ -382,23 +411,23 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
             <FormField
               control={submissionForm.control}
               name="submissionValue"
-              render={({ field }) => ( 
+              render={({ field }) => (
                 <FormItem className="space-y-3">
                   <FormLabel className="text-lg">あなたの投票:</FormLabel>
                   <FormControl>
-                    <div>
+                    <div> {/* This div now correctly receives the id from FormControl */}
                       {vote.voteType === "free_text" && (
                         <Textarea placeholder="ここに回答を入力してください..." {...field} value={typeof field.value === 'string' ? field.value : ""} autoComplete="off" rows={5} />
                       )}
                       {vote.voteType === "multiple_choice" && vote.options && (
-                        vote.allowMultipleSelections ? ( 
+                        vote.allowMultipleSelections ? (
                           <div className="space-y-2">
                             {vote.options.map((option) => (
                               <FormField
                                 key={option.id}
                                 control={submissionForm.control}
-                                name="submissionValue" 
-                                render={({ field: checkboxField }) => { 
+                                name="submissionValue"
+                                render={({ field: checkboxField }) => {
                                   const currentValues = Array.isArray(checkboxField.value) ? checkboxField.value : [];
                                   return (
                                     <FormItem className="flex flex-row items-start space-x-3 space-y-0 p-3 border rounded-md hover:bg-secondary/50 transition-colors">
@@ -445,7 +474,7 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
                                                     />
                                                 )}
                                             />
-                                            {multipleCustomFields.length > 1 && (
+                                            {multipleCustomFields.length > 1 && ( /* Allow removing if more than one custom field exists */
                                                 <Button type="button" variant="ghost" size="icon" onClick={() => removeCustomOption(index)} aria-label="カスタム選択肢を削除">
                                                     <Trash2 className="h-4 w-4 text-destructive" />
                                                 </Button>
@@ -459,10 +488,10 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
                                 </div>
                             )}
                           </div>
-                        ) : ( 
+                        ) : (
                           <RadioGroup
-                            onValueChange={field.onChange} 
-                            value={typeof field.value === 'string' ? field.value : ""} 
+                            onValueChange={field.onChange}
+                            value={typeof field.value === 'string' ? field.value : ""}
                             className="flex flex-col space-y-2"
                           >
                             {vote.options.map((option) => (
@@ -473,18 +502,18 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
                                 <FormLabel className="font-normal text-base cursor-pointer flex-1">{option.text}</FormLabel>
                               </FormItem>
                             ))}
-                            {vote.allowAddingOptions && ( 
+                            {vote.allowAddingOptions && (
                                <FormField
                                 control={submissionForm.control}
                                 name="singleCustomOptionText"
-                                render={({ field: customTextField }) => ( 
+                                render={({ field: customTextField }) => (
                                     <FormItem className="flex items-center space-x-3 space-y-0 p-3 border rounded-md hover:bg-secondary/50 transition-colors">
                                         <FormControl>
-                                            <RadioGroupItem 
-                                                value={INTERNAL_CUSTOM_OPTION_VALUE} 
+                                            <RadioGroupItem
+                                                value={INTERNAL_CUSTOM_OPTION_VALUE}
                                                 id="custom-option-radio"
-                                                onClick={() => {
-                                                   field.onChange(INTERNAL_CUSTOM_OPTION_VALUE); 
+                                                onClick={() => { // Ensure radio is selected when input area is interacted with
+                                                   field.onChange(INTERNAL_CUSTOM_OPTION_VALUE);
                                                 }}
                                             />
                                         </FormControl>
@@ -499,7 +528,7 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
                                                     field.onChange(INTERNAL_CUSTOM_OPTION_VALUE);
                                                 }
                                             }}
-                                            onFocus={() => {
+                                            onFocus={() => { // Select radio when input is focused
                                                 if (field.value !== INTERNAL_CUSTOM_OPTION_VALUE) {
                                                     field.onChange(INTERNAL_CUSTOM_OPTION_VALUE);
                                                 }
@@ -518,7 +547,7 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
                       {vote.voteType === "yes_no" && (
                          <RadioGroup
                           onValueChange={field.onChange}
-                          value={typeof field.value === 'string' ? field.value : ""} 
+                          value={typeof field.value === 'string' ? field.value : ""}
                           className="flex flex-col space-y-2"
                         >
                             <FormItem className="flex items-center space-x-3 space-y-0 p-3 border rounded-md hover:bg-secondary/50 transition-colors">
