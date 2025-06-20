@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { ShieldCheck } from "lucide-react";
+import { ShieldCheck, Loader2 } from "lucide-react"; // Added Loader2
 
 interface AdminAuthProps {
   expectedAdminPassword: string;
@@ -29,18 +29,17 @@ const authSchema = z.object({
   adminPassword: z.string().refine(
     (val) => /^\d{4}$/.test(val) || /^\d{8}$/.test(val),
     {
-      message: "パスワードは4桁または8桁の数字で入力してください。", // Keep message somewhat generic but guide towards 4-digit if ambiguous
+      message: "パスワードは4桁または8桁の数字で入力してください。", 
     }
   ).refine(
     (val) => {
       if (val.length === 8) {
-        // Basic check for YYYYMMDD format if it's 8 digits, can be stricter if needed
         const year = parseInt(val.substring(0, 4));
         const month = parseInt(val.substring(4, 6));
         const day = parseInt(val.substring(6, 8));
         return year > 1900 && year < 3000 && month >= 1 && month <= 12 && day >= 1 && day <= 31;
       }
-      return true; // Pass for 4-digit numbers or if not 8 digits
+      return true; 
     },
     {
       message: "パスワードは4桁の数字、または正しいYYYYMMDD形式の8桁の数字で入力してください。",
@@ -52,6 +51,7 @@ type AuthFormValues = z.infer<typeof authSchema>;
 export function AdminAuth({ expectedAdminPassword, onAuthenticated, children }: AdminAuthProps) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authAttempted, setAuthAttempted] = useState(false);
+  const [isAuthenticating, setIsAuthenticating] = useState(false); // Added loading state
 
   const form = useForm<AuthFormValues>({
     resolver: zodResolver(authSchema),
@@ -59,7 +59,9 @@ export function AdminAuth({ expectedAdminPassword, onAuthenticated, children }: 
   });
 
   const handleAuthSubmit = (data: AuthFormValues) => {
+    setIsAuthenticating(true);
     setAuthAttempted(true);
+
     const currentDate = new Date();
     const yyyy = currentDate.getFullYear().toString();
     const mm = (currentDate.getMonth() + 1).toString().padStart(2, '0');
@@ -74,6 +76,7 @@ export function AdminAuth({ expectedAdminPassword, onAuthenticated, children }: 
       setIsAuthenticated(false);
       onAuthenticated(false);
     }
+    setIsAuthenticating(false);
   };
 
   if (isAuthenticated) {
@@ -107,15 +110,22 @@ export function AdminAuth({ expectedAdminPassword, onAuthenticated, children }: 
                 </FormItem>
               )}
             />
-            <Button type="submit" className="w-full bg-primary hover:bg-primary/90">
-              認証
+            <Button type="submit" className="w-full bg-primary hover:bg-primary/90" disabled={isAuthenticating}>
+              {isAuthenticating ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> 認証中...
+                </>
+              ) : (
+                "認証"
+              )}
             </Button>
           </form>
         </Form>
-        {authAttempted && !isAuthenticated && (
+        {authAttempted && !isAuthenticated && !isAuthenticating && ( // Ensure message doesn't show while authenticating
           <p className="mt-4 text-sm text-destructive text-center">認証に失敗しました。もう一度お試しください。</p>
         )}
       </CardContent>
     </Card>
   );
 }
+

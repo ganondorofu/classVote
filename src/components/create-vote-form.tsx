@@ -1,6 +1,7 @@
 
 "use client"
 
+import { useState } from "react"; // Added useState
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useFieldArray } from "react-hook-form";
 import * as z from "zod";
@@ -27,7 +28,7 @@ import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useVoteStore } from "@/hooks/use-vote-store";
 import { useToast } from "@/hooks/use-toast";
-import { PlusCircle, Trash2, ArrowRight } from "lucide-react";
+import { PlusCircle, Trash2, ArrowRight, Loader2 } from "lucide-react"; // Added Loader2
 import type { VoteType, VisibilitySetting } from "@/lib/store-types";
 
 const voteFormSchema = z.object({
@@ -42,7 +43,7 @@ const voteFormSchema = z.object({
   allowAddingOptions: z.boolean().optional(),
 }).refine(data => {
   if (data.voteType === "multiple_choice") {
-    return data.options && data.options.length >= 1; // Allow 1 if adding options is possible, otherwise 2.
+    return data.options && data.options.length >= 1;
   }
   return true;
 }, {
@@ -65,6 +66,7 @@ export function CreateVoteForm() {
   const router = useRouter();
   const { addVote } = useVoteStore();
   const { toast } = useToast();
+  const [isSubmitting, setIsSubmitting] = useState(false); // Added loading state
 
   const form = useForm<VoteFormValues>({
     resolver: zodResolver(voteFormSchema),
@@ -88,8 +90,12 @@ export function CreateVoteForm() {
 
   const voteType = form.watch("voteType");
 
-  function onSubmit(data: VoteFormValues) {
+  async function onSubmit(data: VoteFormValues) { // Made onSubmit async
+    setIsSubmitting(true);
     try {
+      // Simulate API call delay if needed
+      // await new Promise(resolve => setTimeout(resolve, 1000)); 
+
       const voteDataForStore = {
         title: data.title,
         adminPassword: data.adminPassword,
@@ -109,7 +115,7 @@ export function CreateVoteForm() {
         title: "投票が作成されました！",
         description: `「${newVote.title}」が開始されました。`,
       });
-      router.push(`/vote/${newVote.id}/admin`);
+      router.push(`/`); // Changed redirect to dashboard
     } catch (error) {
       toast({
         title: "エラー",
@@ -117,6 +123,8 @@ export function CreateVoteForm() {
         variant: "destructive",
       });
       console.error("投票の作成に失敗しました:", error);
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
@@ -325,8 +333,16 @@ export function CreateVoteForm() {
             />
 
 
-            <Button type="submit" size="lg" className="w-full bg-accent hover:bg-accent/90 text-accent-foreground">
-              投票を作成 <ArrowRight className="ml-2 h-5 w-5" />
+            <Button type="submit" size="lg" className="w-full bg-accent hover:bg-accent/90 text-accent-foreground" disabled={isSubmitting}>
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" /> 作成中...
+                </>
+              ) : (
+                <>
+                  投票を作成 <ArrowRight className="ml-2 h-5 w-5" />
+                </>
+              )}
             </Button>
           </form>
         </Form>
@@ -334,3 +350,4 @@ export function CreateVoteForm() {
     </Card>
   );
 }
+
