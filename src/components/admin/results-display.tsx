@@ -1,11 +1,14 @@
 
 "use client"
 
-import type { Vote, Submission, VoteOption } from "@/lib/store-types";
+import type { Vote, Submission } from "@/lib/store-types";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { CheckSquare, MessageSquare, EyeOff, User, List } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useVoteStore } from "@/hooks/use-vote-store";
+import { useToast } from "@/hooks/use-toast";
+import { CheckSquare, MessageSquare, EyeOff, User, List, RotateCcw } from "lucide-react";
 
 interface ResultsDisplayProps {
   vote: Vote;
@@ -15,6 +18,9 @@ interface ResultsDisplayProps {
 const COLORS = ['#29ABE2', '#FF9933', '#82ca9d', '#ffc658', '#FF6B6B', '#A0E7E5'];
 
 export function ResultsDisplay({ vote, submissions }: ResultsDisplayProps) {
+  const { deleteSubmissionById } = useVoteStore();
+  const { toast } = useToast();
+
   const canShowIndividualVotes = vote.visibilitySetting === 'everyone' || (vote.visibilitySetting === 'admin_only');
   const isAnonymous = vote.visibilitySetting === 'anonymous';
 
@@ -32,6 +38,25 @@ export function ResultsDisplay({ vote, submissions }: ResultsDisplayProps) {
   };
 
   const chartData = aggregateResults();
+
+  const handleResetVote = (submissionId: string, voterAttendanceNumber: string) => {
+    if (vote.visibilitySetting === 'anonymous') {
+        toast({
+            title: "リセット不可",
+            description: "匿名投票の投票はリセットできません。",
+            variant: "destructive",
+        });
+        return;
+    }
+    // Simple confirmation for now, can be replaced with a dialog
+    if (window.confirm(`出席番号 ${voterAttendanceNumber} の投票をリセットしますか？この操作により、再度投票が可能になります。`)) {
+      deleteSubmissionById(submissionId);
+      toast({
+        title: "投票をリセットしました",
+        description: `出席番号 ${voterAttendanceNumber} の投票データが削除されました。再投票が可能です。`,
+      });
+    }
+  };
 
   const renderContent = () => {
     if (submissions.length === 0) {
@@ -54,8 +79,15 @@ export function ResultsDisplay({ vote, submissions }: ResultsDisplayProps) {
             <ScrollArea className="h-60 w-full rounded-md border p-3 bg-background">
               <ul className="space-y-2">
                 {submissions.map(sub => (
-                  <li key={sub.id} className="text-sm p-2 border-b">
-                    <span className="font-medium">投票者 {sub.voterAttendanceNumber}: </span>{sub.submissionValue}
+                  <li key={sub.id} className="text-sm p-2 border-b flex justify-between items-center">
+                    <span>
+                        <span className="font-medium">投票者 {sub.voterAttendanceNumber}: </span>{sub.submissionValue}
+                    </span>
+                    {vote.visibilitySetting !== 'anonymous' && (
+                        <Button variant="outline" size="sm" onClick={() => handleResetVote(sub.id, sub.voterAttendanceNumber)} className="ml-2 group">
+                           <RotateCcw className="mr-1.5 h-3.5 w-3.5 group-hover:animate-spin"/> リセット
+                        </Button>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -101,9 +133,16 @@ export function ResultsDisplay({ vote, submissions }: ResultsDisplayProps) {
             <ScrollArea className="h-40 w-full rounded-md border p-3 bg-background">
               <ul className="space-y-1">
                 {submissions.map(sub => (
-                  <li key={sub.id} className="text-sm flex items-center p-1.5 rounded hover:bg-secondary/50">
-                    <User className="mr-2 h-4 w-4 text-muted-foreground"/>
-                    投票者 {sub.voterAttendanceNumber}: <span className="font-semibold ml-1">{vote.voteType === 'multiple_choice' ? getOptionTextById(sub.submissionValue) : sub.submissionValue}</span>
+                  <li key={sub.id} className="text-sm flex items-center justify-between p-1.5 rounded hover:bg-secondary/50">
+                    <span className="flex items-center">
+                        <User className="mr-2 h-4 w-4 text-muted-foreground"/>
+                        投票者 {sub.voterAttendanceNumber}: <span className="font-semibold ml-1">{vote.voteType === 'multiple_choice' ? getOptionTextById(sub.submissionValue) : sub.submissionValue}</span>
+                    </span>
+                    {vote.visibilitySetting !== 'anonymous' && (
+                         <Button variant="outline" size="sm" onClick={() => handleResetVote(sub.id, sub.voterAttendanceNumber)} className="ml-2 group">
+                            <RotateCcw className="mr-1.5 h-3.5 w-3.5 group-hover:animate-spin"/> リセット
+                        </Button>
+                    )}
                   </li>
                 ))}
               </ul>

@@ -46,12 +46,11 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
     defaultValues: { attendanceNumber: undefined },
   });
 
-  // Dynamically create schema based on vote type and allowEmptyVotes
   const voteSubmissionSchema = z.object({
     submissionValue: vote.allowEmptyVotes
       ? vote.voteType === 'free_text'
         ? z.string().max(500, "回答が長すぎます。500文字以内で入力してください。").optional().default("")
-        : z.string().optional() // For multiple_choice (option.id) or yes_no ("yes"/"no") - empty string or undefined if not selected
+        : z.string().optional()
       : vote.voteType === 'multiple_choice'
         ? z.string({required_error: "選択肢を選んでください。"}).min(1, "選択肢を選んでください。")
         : vote.voteType === 'yes_no'
@@ -86,15 +85,12 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
     if (currentVoter === null) return;
     setIsLoading(true);
     
-    // Ensure submissionValue is correctly set for empty allowed votes
     let submissionFinalValue = data.submissionValue;
     if (vote.allowEmptyVotes) {
         if (vote.voteType === 'free_text' && submissionFinalValue === undefined) {
-            submissionFinalValue = ""; // Ensure empty string for free_text if optional and nothing entered
+            submissionFinalValue = ""; 
         }
-        // For multiple_choice/yes_no, undefined is acceptable if empty is allowed.
     }
-
 
     await new Promise(resolve => setTimeout(resolve, 500));
 
@@ -215,7 +211,10 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
         <CardContent>
           <CheckCircle className="mx-auto h-12 w-12 text-green-500 mb-4" />
           <p className="text-xl">出席番号 {currentVoter} は、この投票に既に投票済みです。</p>
-          <p className="text-muted-foreground">ご協力ありがとうございました！</p>
+          {vote.visibilitySetting !== 'anonymous' ? (
+             <p className="text-muted-foreground mt-2">投票内容を変更したい場合は、管理者に連絡して投票のリセットを依頼してください。</p>
+          ) : null}
+          <p className="text-muted-foreground mt-2">ご協力ありがとうございました！</p>
         </CardContent>
          <CardFooter className="flex justify-center">
             <Button onClick={() => { setCurrentVoter(null); attendanceForm.reset({ attendanceNumber: undefined }); }} variant="outline">
@@ -258,7 +257,7 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
                       {vote.voteType === "multiple_choice" && vote.options && (
                         <RadioGroup
                           onValueChange={field.onChange}
-                          value={field.value ?? ""} // Ensure value is not undefined for RadioGroup
+                          value={field.value ?? ""} 
                           className="flex flex-col space-y-2"
                         >
                           {vote.options.map((option) => (
@@ -274,7 +273,7 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
                       {vote.voteType === "yes_no" && (
                          <RadioGroup
                           onValueChange={field.onChange}
-                          value={field.value ?? ""} // Ensure value is not undefined for RadioGroup
+                          value={field.value ?? ""} 
                           className="flex flex-col space-y-2"
                         >
                             <FormItem className="flex items-center space-x-3 space-y-0 p-3 border rounded-md hover:bg-secondary/50 transition-colors">
