@@ -29,7 +29,21 @@ const authSchema = z.object({
   adminPassword: z.string().refine(
     (val) => /^\d{4}$/.test(val) || /^\d{8}$/.test(val),
     {
-      message: "パスワードは4桁の数字で入力してください。",
+      message: "パスワードは4桁または8桁の数字で入力してください。", // Keep message somewhat generic but guide towards 4-digit if ambiguous
+    }
+  ).refine(
+    (val) => {
+      if (val.length === 8) {
+        // Basic check for YYYYMMDD format if it's 8 digits, can be stricter if needed
+        const year = parseInt(val.substring(0, 4));
+        const month = parseInt(val.substring(4, 6));
+        const day = parseInt(val.substring(6, 8));
+        return year > 1900 && year < 3000 && month >= 1 && month <= 12 && day >= 1 && day <= 31;
+      }
+      return true; // Pass for 4-digit numbers or if not 8 digits
+    },
+    {
+      message: "パスワードは4桁の数字、または正しいYYYYMMDD形式の8桁の数字で入力してください。",
     }
   ),
 });
@@ -105,4 +119,3 @@ export function AdminAuth({ expectedAdminPassword, onAuthenticated, children }: 
     </Card>
   );
 }
-
