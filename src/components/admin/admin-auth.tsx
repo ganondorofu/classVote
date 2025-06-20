@@ -26,7 +26,7 @@ interface AdminAuthProps {
 }
 
 const authSchema = z.object({
-  adminPassword: z.string().regex(/^(\d{4}|\d{8})$/, { message: "パスワードは4桁または8桁の数字で入力してください。" }),
+  adminPassword: z.string().regex(/^\d{4}$/, { message: "パスワードは4桁の数字で入力してください。" }),
 });
 type AuthFormValues = z.infer<typeof authSchema>;
 
@@ -39,18 +39,9 @@ export function AdminAuth({ expectedAdminPassword, onAuthenticated, children }: 
     defaultValues: { adminPassword: "" },
   });
 
-  const getMasterKey = () => {
-    const today = new Date();
-    const year = today.getFullYear();
-    const month = (today.getMonth() + 1).toString().padStart(2, '0');
-    const day = today.getDate().toString().padStart(2, '0');
-    return `${year}${month}${day}`;
-  };
-
   const handleAuthSubmit = (data: AuthFormValues) => {
     setAuthAttempted(true);
-    const masterKey = getMasterKey();
-    if (data.adminPassword === expectedAdminPassword || data.adminPassword === masterKey) {
+    if (data.adminPassword === expectedAdminPassword) {
       setIsAuthenticated(true);
       onAuthenticated(true);
     } else {
@@ -70,7 +61,7 @@ export function AdminAuth({ expectedAdminPassword, onAuthenticated, children }: 
         <CardTitle className="text-2xl font-headline flex items-center">
           <ShieldCheck className="mr-2 h-7 w-7 text-primary" /> 管理者認証
         </CardTitle>
-        <CardDescription>この投票を管理するには、設定した4桁のパスワード、またはマスターキーとして当日の日付 (YYYYMMDD形式) を入力してください。</CardDescription>
+        <CardDescription>この投票を管理するには、設定した4桁のパスワードを入力してください。</CardDescription>
       </CardHeader>
       <CardContent>
         <Form {...form}>
@@ -82,10 +73,10 @@ export function AdminAuth({ expectedAdminPassword, onAuthenticated, children }: 
                 <FormItem>
                   <FormLabel>管理用パスワード</FormLabel>
                   <FormControl>
-                    <Input type="password" placeholder="4桁のパスワード または YYYYMMDD" {...field} autoComplete="current-password" />
+                    <Input type="password" placeholder="4桁のパスワード" {...field} autoComplete="current-password" />
                   </FormControl>
                   <FormDescription>
-                    投票作成時に設定した4桁のパスワード、またはマスターキーとして当日の日付 (YYYYMMDD形式) を入力してください。
+                    投票作成時に設定した4桁のパスワードを入力してください。
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -103,4 +94,3 @@ export function AdminAuth({ expectedAdminPassword, onAuthenticated, children }: 
     </Card>
   );
 }
-
