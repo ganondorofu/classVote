@@ -59,7 +59,7 @@ export function useVoteStore() {
       totalExpectedVoters: voteData.totalExpectedVoters,
       voteType: voteData.voteType,
       visibilitySetting: voteData.visibilitySetting,
-      allowEmptyVotes: voteData.allowEmptyVotes ?? false, // Default to false if not provided
+      allowEmptyVotes: voteData.allowEmptyVotes ?? false,
       id: generateId(),
       createdAt: new Date().toISOString(),
       status: 'open',
@@ -89,6 +89,12 @@ export function useVoteStore() {
     };
     setSubmissions(prevSubmissions => [...prevSubmissions, newSubmission]);
     return newSubmission;
+  }, []);
+
+  const deleteSubmissionById = useCallback((submissionId: string) => {
+    setSubmissions(prevSubmissions =>
+      prevSubmissions.filter(sub => sub.id !== submissionId)
+    );
   }, []);
 
   const getSubmissionsByVoteId = useCallback((voteId: string): Submission[] => {
@@ -124,6 +130,7 @@ export function useVoteStore() {
     updateVoteStatus,
     submissions,
     addSubmission,
+    deleteSubmissionById,
     getSubmissionsByVoteId,
     hasVoted,
     getUnvotedAttendanceNumbers,
