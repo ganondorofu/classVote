@@ -2,7 +2,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from 'react';
-import type { Vote, Submission, VoteOption } from '@/lib/store-types';
+import type { Vote, Submission, VoteOption, VoteType, VisibilitySetting } from '@/lib/store-types';
 
 const VOTES_KEY = 'classvote_votes';
 const SUBMISSIONS_KEY = 'classvote_submissions';
@@ -10,6 +10,19 @@ const SUBMISSIONS_KEY = 'classvote_submissions';
 function generateId(): string {
   return Math.random().toString(36).substr(2, 9);
 }
+
+interface AddVoteData {
+  title: string;
+  adminPassword: string;
+  totalExpectedVoters: number;
+  voteType: VoteType;
+  visibilitySetting: VisibilitySetting;
+  allowEmptyVotes?: boolean;
+  options?: string[]; // For multiple_choice
+  allowMultipleSelections?: boolean; // For multiple_choice
+  allowAddingOptions?: boolean; // For multiple_choice
+}
+
 
 export function useVoteStore() {
   const [votes, setVotes] = useState<Vote[]>([]);
@@ -52,18 +65,20 @@ export function useVoteStore() {
     }
   }, [submissions, isLoaded]);
 
-  const addVote = useCallback((voteData: Omit<Vote, 'id' | 'createdAt' | 'status' | 'options' | 'creatorAttendanceNumber'> & { options?: string[], adminPassword: string, allowEmptyVotes?: boolean }) => {
+  const addVote = useCallback((voteData: AddVoteData) => {
     const newVote: Vote = {
+      id: generateId(),
       title: voteData.title,
       adminPassword: voteData.adminPassword,
       totalExpectedVoters: voteData.totalExpectedVoters,
       voteType: voteData.voteType,
       visibilitySetting: voteData.visibilitySetting,
       allowEmptyVotes: voteData.allowEmptyVotes ?? false,
-      id: generateId(),
       createdAt: new Date().toISOString(),
       status: 'open',
-      options: voteData.options?.map(optText => ({ id: generateId(), text: optText }))
+      options: voteData.options?.map(optText => ({ id: generateId(), text: optText })),
+      allowMultipleSelections: voteData.allowMultipleSelections ?? false,
+      allowAddingOptions: voteData.allowAddingOptions ?? false,
     };
     setVotes(prevVotes => [...prevVotes, newVote]);
     return newVote;
@@ -80,6 +95,27 @@ export function useVoteStore() {
       )
     );
   }, []);
+
+  // Function to add a new user-defined option to a vote dynamically
+  // This is not directly used by addSubmission but could be if we decide to persist user options to the Vote object
+  // For now, custom options are handled within submissionValue.
+  // const addUserOptionToVote = useCallback((voteId: string, optionText: string): VoteOption | undefined => {
+  //   let newOption: VoteOption | undefined = undefined;
+  //   setVotes(prevVotes => 
+  //     prevVotes.map(vote => {
+  //       if (vote.id === voteId && vote.voteType === 'multiple_choice' && vote.allowAddingOptions) {
+  //         newOption = { id: `USER_OPTION_${generateId()}`, text: optionText };
+  //         return {
+  //           ...vote,
+  //           options: [...(vote.options || []), newOption],
+  //         };
+  //       }
+  //       return vote;
+  //     })
+  //   );
+  //   return newOption;
+  // }, []);
+
 
   const addSubmission = useCallback((submissionData: Omit<Submission, 'id' | 'submittedAt'>) => {
     const newSubmission: Submission = {
