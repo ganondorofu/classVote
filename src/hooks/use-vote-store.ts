@@ -81,32 +81,54 @@ export function useVoteStore() {
   }, []);
 
   const addSubmission = useCallback((submissionData: Omit<Submission, 'id' | 'submittedAt'>) => {
+    const vote = getVoteById(submissionData.voteId);
+    
+    const voterIdentifier = (vote && vote.visibilitySetting === 'anonymous')
+      ? 'ANONYMOUS_VOTER' // Generic placeholder for anonymous votes
+      : submissionData.voterAttendanceNumber; // Actual attendance number for non-anonymous
+
     const newSubmission: Submission = {
       ...submissionData,
+      voterAttendanceNumber: voterIdentifier,
       id: generateId(),
       submittedAt: new Date().toISOString(),
     };
     setSubmissions(prevSubmissions => [...prevSubmissions, newSubmission]);
     return newSubmission;
-  }, []);
+  }, [getVoteById]);
 
   const getSubmissionsByVoteId = useCallback((voteId: string): Submission[] => {
     return submissions.filter(submission => submission.voteId === voteId);
   }, [submissions]);
 
   const hasVoted = useCallback((voteId: string, attendanceNumber: string): boolean => {
+    // For anonymous votes, this check effectively won't prevent re-submission under the same attendance number
+    // because the stored attendance number is "ANONYMOUS_VOTER".
+    // This is a trade-off for full anonymity in storage.
+    const vote = getVoteById(voteId);
+    if (vote && vote.visibilitySetting === 'anonymous') {
+      return false; // Cannot determine if a specific student has voted in an anonymous poll.
+    }
     return submissions.some(s => s.voteId === voteId && s.voterAttendanceNumber === attendanceNumber);
-  }, [submissions]);
+  }, [submissions, getVoteById]);
   
   const getUnvotedAttendanceNumbers = useCallback((voteId: string): string[] => {
     const vote = getVoteById(voteId);
     if (!vote) return [];
 
+    // If vote is anonymous, all are considered unvoted from tracking perspective
+    if (vote.visibilitySetting === 'anonymous') {
+        const allNumbers: string[] = [];
+        for (let i = 1; i <= vote.totalExpectedVoters; i++) {
+            allNumbers.push(i.toString());
+        }
+        return allNumbers;
+    }
+
     const voteSubmissions = getSubmissionsByVoteId(voteId);
     const votedNumbers = new Set(voteSubmissions.map(s => s.voterAttendanceNumber));
     
     const unvoted: string[] = [];
-    // Assuming attendance numbers are 1-indexed integers up to totalExpectedVoters
     for (let i = 1; i <= vote.totalExpectedVoters; i++) {
       const attendanceStr = i.toString(); 
       if (!votedNumbers.has(attendanceStr)) {
@@ -130,3 +152,4 @@ export function useVoteStore() {
     isLoaded,
   };
 }
+
