@@ -1,13 +1,15 @@
+
 "use client"
 
 import type { Vote, Submission } from "@/lib/store-types";
+import { useState, useMemo } from "react";
 import { BarChart as RechartsBarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { useVoteStore } from "@/hooks/use-vote-store";
 import { useToast } from "@/hooks/use-toast";
-import { CheckSquare, MessageSquare, EyeOff, User, List, RotateCcw, BarChartBigIcon } from "lucide-react"; // Changed BarChart to BarChartBigIcon
+import { CheckSquare, MessageSquare, EyeOff, User, List, RotateCcw, BarChartBigIcon, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
 
 const USER_OPTION_PREFIX = "USER_OPTION:";
 const COLORS = ['#29ABE2', '#FF9933', '#82ca9d', '#ffc658', '#FF6B6B', '#A0E7E5', '#d0ed57', '#ffc0cb', '#8884d8'];
@@ -18,11 +20,50 @@ interface ResultsDisplayProps {
 }
 
 export function ResultsDisplay({ vote, submissions }: ResultsDisplayProps) {
-  const { deleteSubmissionById } = useVoteStore(); // Kept for potential future use, but button removed
   const { toast } = useToast();
+  const [sortConfig, setSortConfig] = useState<{ key: 'number' | 'text' | null; direction: 'asc' | 'desc' }>({
+    key: null,
+    direction: 'asc',
+  });
 
   const canShowIndividualVotes = vote.visibilitySetting === 'everyone' || (vote.visibilitySetting === 'admin_only');
   const isAnonymous = vote.visibilitySetting === 'anonymous';
+
+  const sortedFreeTextSubmissions = useMemo(() => {
+    if (vote.voteType !== 'free_text') return submissions;
+
+    const sortableItems = [...submissions];
+    if (sortConfig.key) {
+      sortableItems.sort((a, b) => {
+        let valA, valB;
+        if (sortConfig.key === 'number') {
+          valA = parseInt(a.voterAttendanceNumber, 10);
+          valB = parseInt(b.voterAttendanceNumber, 10);
+        } else { // 'text'
+          valA = (a.submissionValue || '').toLowerCase();
+          valB = (b.submissionValue || '').toLowerCase();
+        }
+        
+        if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+    // Default sort by attendance number (ascending)
+    else {
+       sortableItems.sort((a, b) => parseInt(a.voterAttendanceNumber, 10) - parseInt(b.voterAttendanceNumber, 10));
+    }
+    return sortableItems;
+  }, [submissions, sortConfig, vote.voteType]);
+
+  const handleSort = (key: 'number' | 'text') => {
+    let direction: 'asc' | 'desc' = 'asc';
+    if (sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
 
   const getOptionText = (value: string): string => {
     if (value.startsWith(USER_OPTION_PREFIX)) {
@@ -44,17 +85,14 @@ export function ResultsDisplay({ vote, submissions }: ResultsDisplayProps) {
           const parsed = JSON.parse(sub.submissionValue);
           if (Array.isArray(parsed)) {
             selectedOptions = parsed;
-          } else if (typeof parsed === 'string') { // Handle legacy data that might not be an array
-            selectedOptions = [parsed];
           }
         } catch (e) {
-            // Handle non-JSON string values if necessary, or just skip
-            if (typeof sub.submissionValue === 'string' && sub.submissionValue.trim() !== '') {
-                selectedOptions = [sub.submissionValue];
-            } else {
-                 console.warn("Could not parse submission value:", sub.submissionValue, e);
-                 return; // Skip malformed submission
-            }
+          if (typeof sub.submissionValue === 'string' && sub.submissionValue.trim() !== '') {
+            selectedOptions = [sub.submissionValue];
+          } else {
+            console.warn("Could not parse submission value:", sub.submissionValue, e);
+            return;
+          }
         }
         
         selectedOptions.forEach(optionValue => {
@@ -76,9 +114,6 @@ export function ResultsDisplay({ vote, submissions }: ResultsDisplayProps) {
 
   const chartData = aggregateResults();
 
-  // Reset functionality is removed from UI as per new requirement
-  // const handleResetVote = (submissionId: string, voterAttendanceNumber: string) => { ... }
-
   const renderContent = () => {
     if (submissions.length === 0) {
       return <p className="text-muted-foreground">まだ提出はありません。</p>;
@@ -97,18 +132,38 @@ export function ResultsDisplay({ vote, submissions }: ResultsDisplayProps) {
                 公開設定により、個別の自由記述内容は非表示です。集計された件数のみ表示されます。
             </p>
           ) : (
-            <ScrollArea className="h-60 w-full rounded-md border p-3 bg-background">
-              <ul className="space-y-2">
-                {submissions.map(sub => (
-                  <li key={sub.id} className="text-sm p-2 border-b flex justify-between items-center">
-                    <span>
-                        <span className="font-medium">{sub.voterAttendanceNumber}番: </span>{sub.submissionValue}
-                    </span>
-                    {/* Reset button removed */}
-                  </li>
-                ))}
-              </ul>
-            </ScrollArea>
+            <>
+              <div className="flex items-center gap-2 mb-3">
+                  <span className="text-sm font-medium text-muted-foreground">並べ替え:</span>
+                  <Button variant="outline" size="sm" onClick={() => handleSort('number')}>
+                      出席番号
+                      {sortConfig.key === 'number' ? (
+                          sortConfig.direction === 'asc' ? <ArrowUp className="ml-2 h-4 w-4" /> : <ArrowDown className="ml-2 h-4 w-4" />
+                      ) : (
+                          <ArrowUpDown className="ml-2 h-4 w-4 text-muted-foreground" />
+                      )}
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => handleSort('text')}>
+                      回答内容
+                      {sortConfig.key === 'text' ? (
+                          sortConfig.direction === 'asc' ? <ArrowUp className="ml-2 h-4 w-4" /> : <ArrowDown className="ml-2 h-4 w-4" />
+                      ) : (
+                          <ArrowUpDown className="ml-2 h-4 w-4 text-muted-foreground" />
+                      )}
+                  </Button>
+              </div>
+              <ScrollArea className="h-60 w-full rounded-md border p-3 bg-background">
+                <ul className="space-y-2">
+                  {sortedFreeTextSubmissions.map(sub => (
+                    <li key={sub.id} className="text-sm p-2 border-b flex justify-between items-center">
+                      <span>
+                          <span className="font-medium">{sub.voterAttendanceNumber}番: </span>{sub.submissionValue}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </ScrollArea>
+            </>
           )}
         </>
       );
@@ -118,7 +173,7 @@ export function ResultsDisplay({ vote, submissions }: ResultsDisplayProps) {
     return (
       <>
         <h4 className="text-md font-semibold mb-3 flex items-center">
-            <BarChartBigIcon className="mr-2 h-5 w-5 text-primary"/> {/* Changed icon */}
+            <BarChartBigIcon className="mr-2 h-5 w-5 text-primary"/>
             投票分布
         </h4>
         <ResponsiveContainer width="100%" height={300}>
@@ -159,13 +214,11 @@ export function ResultsDisplay({ vote, submissions }: ResultsDisplayProps) {
                             const parsedValues = JSON.parse(sub.submissionValue);
                             if (Array.isArray(parsedValues)) {
                                 displayValue = parsedValues.map(val => getOptionText(val)).join(", ");
-                            } else {
-                                displayValue = getOptionText(parsedValues); // Fallback
                             }
                         } catch {
                             displayValue = getOptionText(sub.submissionValue); // Fallback for non-JSON
                         }
-                    } else { // Fallback for any other type, though free_text is handled above
+                    } else { 
                          displayValue = sub.submissionValue;
                     }
                     if (!displayValue && vote.allowEmptyVotes) displayValue = "（空の投票）";
@@ -176,7 +229,6 @@ export function ResultsDisplay({ vote, submissions }: ResultsDisplayProps) {
                             <User className="mr-2 h-4 w-4 text-muted-foreground"/>
                             {sub.voterAttendanceNumber}番: <span className="font-semibold ml-1">{displayValue}</span>
                         </span>
-                        {/* Reset button removed */}
                       </li>
                    );
                 })}
