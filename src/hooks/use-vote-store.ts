@@ -242,7 +242,7 @@ export function useVoteStore() {
       toast({ title: "エラー", description: "投票の提出に失敗しました。", variant: "destructive" });
       throw error;
     }
-  }, [toast, getVoteById, votes]);
+  }, [toast, getVoteById]);
 
 
   const getSubmissionsByVoteId = useCallback((voteId: string): Submission[] => {
@@ -333,6 +333,37 @@ export function useVoteStore() {
       throw error;
     }
   }, [submissions, resetRequests, toast, getVoteById]);
+  
+  const deleteVote = useCallback(async (voteId: string) => {
+    if (!votes.some(v => v.id === voteId)) {
+        toast({ title: "エラー", description: "削除対象の投票が見つかりません。", variant: "destructive" });
+        throw new Error("Vote not found for deletion");
+    }
+
+    try {
+      const submissionsQuery = query(collection(db, "submissions"), where("voteId", "==", voteId));
+      const submissionsSnapshot = await getDocs(submissionsQuery);
+      
+      const requestsQuery = query(collection(db, "resetRequests"), where("voteId", "==", voteId));
+      const requestsSnapshot = await getDocs(requestsQuery);
+
+      const batch = writeBatch(db);
+      
+      batch.delete(doc(db, "votes", voteId));
+      submissionsSnapshot.forEach(doc => batch.delete(doc.ref));
+      requestsSnapshot.forEach(doc => batch.delete(doc.ref));
+      
+      await batch.commit();
+    } catch (error) {
+        console.error("Error deleting vote:", error);
+        toast({
+            title: "エラー",
+            description: "投票の削除中にエラーが発生しました。",
+            variant: "destructive",
+        });
+        throw error;
+    }
+  }, [toast, votes]);
 
   return {
     votes,
@@ -348,6 +379,7 @@ export function useVoteStore() {
     hasPendingResetRequest,
     getResetRequestsByVoteId,
     approveVoteReset,
+    deleteVote,
     isLoaded,
   };
 }
