@@ -1,3 +1,4 @@
+
 export interface VoteOption {
   id: string;
   text: string;
@@ -32,4 +33,11 @@ export interface Submission {
   // For yes/no, "yes" or "no". For free_text, the text.
   submissionValue: string | undefined;
   submittedAt: string; // ISO string
+}
+
+export interface ResetRequest {
+  id: string;
+  voteId: string;
+  voterAttendanceNumber: string;
+  requestedAt: string; // ISO string
 }

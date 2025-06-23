@@ -13,6 +13,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Separator } from "../ui/separator";
 import { getVoteTypeDisplay, getVisibilityDisplay } from "@/components/vote-card"; // Import helpers
 import Link from "next/link";
+import { ResetRequestsList } from "./reset-requests-list";
 
 
 interface AdminPanelContentProps {
@@ -24,7 +25,9 @@ export function AdminPanelContent({ initialVote }: AdminPanelContentProps) {
     updateVoteStatus, 
     getSubmissionsByVoteId, 
     getUnvotedAttendanceNumbers,
-    getVoteById 
+    getVoteById,
+    getResetRequestsByVoteId,
+    approveVoteReset
   } = useVoteStore();
   const { toast } = useToast();
 
@@ -32,6 +35,7 @@ export function AdminPanelContent({ initialVote }: AdminPanelContentProps) {
   
   const submissions = getSubmissionsByVoteId(vote.id);
   const unvotedAttendanceNumbers = getUnvotedAttendanceNumbers(vote.id);
+  const resetRequests = getResetRequestsByVoteId(vote.id);
 
   const handleToggleVoteStatus = () => {
     const newStatus = vote.status === "open" ? "closed" : "open";
@@ -87,10 +91,12 @@ export function AdminPanelContent({ initialVote }: AdminPanelContentProps) {
       <div className="grid md:grid-cols-2 gap-8">
         <Card className="shadow-md">
             <CardHeader>
-                <CardTitle className="text-xl font-headline">参加状況</CardTitle>
+                <CardTitle className="text-xl font-headline">参加者管理</CardTitle>
             </CardHeader>
             <CardContent>
                 <UnvotedList unvotedAttendanceNumbers={unvotedAttendanceNumbers} totalExpectedVoters={vote.totalExpectedVoters}/>
+                <Separator className="my-6" />
+                <ResetRequestsList requests={resetRequests} onApprove={approveVoteReset} />
             </CardContent>
         </Card>
         
