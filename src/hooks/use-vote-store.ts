@@ -93,52 +93,55 @@ export function useVoteStore() {
     let initialVotesLoaded = false;
     let initialSubmissionsLoaded = false;
     let initialRequestsLoaded = false;
+    let isMounted = true;
 
     const checkAllLoaded = () => {
-        if (initialVotesLoaded && initialSubmissionsLoaded && initialRequestsLoaded && !isLoaded) {
+        if (isMounted && initialVotesLoaded && initialSubmissionsLoaded && initialRequestsLoaded && !isLoaded) {
             setIsLoaded(true);
         }
     };
 
     const votesQuery = query(collection(db, "votes"));
     const unsubscribeVotes = onSnapshot(votesQuery, (querySnapshot: QuerySnapshot<DocumentData>) => {
+      if (!isMounted) return;
       setVotes(querySnapshot.docs.map(mapFirestoreDocToVote));
       initialVotesLoaded = true;
       checkAllLoaded();
     }, (error) => {
       console.error("Error fetching votes:", error);
-      toast({ title: "エラー", description: "投票データの読み込みに失敗しました。", variant: "destructive" });
       initialVotesLoaded = true; checkAllLoaded();
     });
 
     const submissionsQuery = query(collection(db, "submissions"));
     const unsubscribeSubmissions = onSnapshot(submissionsQuery, (querySnapshot: QuerySnapshot<DocumentData>) => {
+      if (!isMounted) return;
       setSubmissions(querySnapshot.docs.map(mapFirestoreDocToSubmission));
       initialSubmissionsLoaded = true;
       checkAllLoaded();
     }, (error) => {
       console.error("Error fetching submissions:", error);
-      toast({ title: "エラー", description: "提出データの読み込みに失敗しました。", variant: "destructive" });
       initialSubmissionsLoaded = true; checkAllLoaded();
     });
 
     const requestsQuery = query(collection(db, "resetRequests"));
     const unsubscribeRequests = onSnapshot(requestsQuery, (querySnapshot: QuerySnapshot<DocumentData>) => {
+      if (!isMounted) return;
       setResetRequests(querySnapshot.docs.map(mapFirestoreDocToResetRequest));
       initialRequestsLoaded = true;
       checkAllLoaded();
     }, (error) => {
       console.error("Error fetching reset requests:", error);
-      toast({ title: "エラー", description: "リセット申請の読み込みに失敗しました。", variant: "destructive" });
       initialRequestsLoaded = true; checkAllLoaded();
     });
 
     return () => {
+      isMounted = false;
       unsubscribeVotes();
       unsubscribeSubmissions();
       unsubscribeRequests();
     };
-  }, [toast, isLoaded]); // isLoaded is included to prevent re-running after initial load
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const addVote = useCallback(async (voteData: AddVoteData): Promise<Vote> => {
     const newVoteId = generateId();

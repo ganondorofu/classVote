@@ -89,16 +89,21 @@ export function ResultsDisplay({ vote, submissions }: ResultsDisplayProps) {
       if (vote.voteType === 'multiple_choice' || vote.voteType === 'yes_no') {
         let selectedOptions: string[] = [];
         try {
-          const parsed = JSON.parse(sub.submissionValue);
-          if (Array.isArray(parsed)) {
-            selectedOptions = parsed;
+          // Guard against non-string values before parsing
+          if (typeof sub.submissionValue === 'string') {
+            const parsed = JSON.parse(sub.submissionValue);
+            if (Array.isArray(parsed)) {
+              selectedOptions = parsed;
+            }
           }
         } catch (e) {
+          // This fallback logic is now safer, only handling strings that are not JSON.
           if (typeof sub.submissionValue === 'string' && sub.submissionValue.trim() !== '' && !sub.submissionValue.startsWith(USER_OPTION_PREFIX)) {
             selectedOptions = [sub.submissionValue];
+          } else if (typeof sub.submissionValue === 'string' && sub.submissionValue.startsWith(USER_OPTION_PREFIX)) {
+            selectedOptions = [sub.submissionValue]
           } else {
-            console.warn("Could not parse or is custom submission value:", sub.submissionValue, e);
-            // Don't return, as custom options need to be handled
+             console.warn("Could not parse or is custom submission value:", sub.submissionValue, e);
           }
         }
         
@@ -212,7 +217,7 @@ export function ResultsDisplay({ vote, submissions }: ResultsDisplayProps) {
             <Legend wrapperStyle={{fontSize: "14px"}}/>
             <Bar dataKey="count" name="票数" barSize={Math.min(40, 300 / (chartData.length || 1) - 10 )}>
                  {chartData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    <Cell key={`cell-${entry.name}-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
             </Bar>
           </RechartsBarChart>
@@ -279,4 +284,3 @@ export function ResultsDisplay({ vote, submissions }: ResultsDisplayProps) {
     </Card>
   );
 }
-

@@ -17,14 +17,7 @@ export default function VoteAdminPage() {
   const { getVoteById, isLoaded } = useVoteStore();
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
   
-  // Use a separate loading state for initial vote check to prevent panel flicker
-  const [isVoteLoading, setIsVoteLoading] = useState(true);
-
-  if (isLoaded && isVoteLoading) {
-     setIsVoteLoading(false);
-  }
-
-  if (isVoteLoading) {
+  if (!isLoaded) {
      return (
       <div className="container mx-auto py-10 px-4 flex justify-center items-center min-h-[calc(100vh-10rem)]">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -59,7 +52,7 @@ export default function VoteAdminPage() {
         expectedAdminPassword={vote.adminPassword}
         onAuthenticated={setIsAdminAuthenticated}
       >
-        {isAdminAuthenticated && <AdminPanelContent initialVote={vote} />}
+        {isAdminAuthenticated && <AdminPanelContent voteId={vote.id} />}
       </AdminAuth>
     </div>
   );

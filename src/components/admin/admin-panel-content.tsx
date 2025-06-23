@@ -30,10 +30,10 @@ import {
 
 
 interface AdminPanelContentProps {
-  initialVote: Vote; 
+  voteId: string;
 }
 
-export function AdminPanelContent({ initialVote }: AdminPanelContentProps) {
+export function AdminPanelContent({ voteId }: AdminPanelContentProps) {
   const router = useRouter();
   const [isDeleting, setIsDeleting] = useState(false);
   const { 
@@ -47,7 +47,17 @@ export function AdminPanelContent({ initialVote }: AdminPanelContentProps) {
   } = useVoteStore();
   const { toast } = useToast();
 
-  const vote = getVoteById(initialVote.id) || initialVote;
+  const vote = getVoteById(voteId);
+  
+  if (!vote) {
+    // This can happen briefly if the store updates. The parent page should handle the "not found" state.
+    // Returning a loader is a safe fallback.
+    return (
+        <div className="flex justify-center items-center p-10">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+    );
+  }
   
   const submissions = getSubmissionsByVoteId(vote.id);
   const unvotedAttendanceNumbers = getUnvotedAttendanceNumbers(vote.id);
@@ -78,8 +88,6 @@ export function AdminPanelContent({ initialVote }: AdminPanelContentProps) {
     }
   };
   
-  if (!vote) return null;
-
   return (
     <div className="space-y-8">
       <Card className="shadow-lg">
