@@ -156,7 +156,6 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
         singleCustomOptionText: "",
         multipleCustomOptions: [{ text: "" }],
       });
-      // submissionForm.trigger(); // Removed to prevent premature validation
     }
   }, [currentVoter, vote.id, hasVoted, submissionForm, vote.voteType, vote.allowMultipleSelections]);
 
@@ -405,7 +404,7 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
                 <FormItem className="space-y-3">
                   <FormLabel className="text-lg">あなたの投票:</FormLabel>
                   <FormControl>
-                    <div>
+                    <div id="form-control-wrapper">
                       {vote.voteType === "free_text" && (
                         <Textarea placeholder="ここに回答を入力してください..." {...field} value={typeof field.value === 'string' ? field.value : ""} autoComplete="off" rows={5} />
                       )}
@@ -481,7 +480,7 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
                         ) : (
                           <RadioGroup
                             onValueChange={field.onChange}
-                            defaultValue={field.value} 
+                            value={field.value} 
                             className="flex flex-col space-y-2"
                           >
                             {vote.options.map((option) => (
@@ -537,7 +536,7 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
                       {vote.voteType === "yes_no" && (
                          <RadioGroup
                           onValueChange={field.onChange}
-                          defaultValue={field.value}
+                          value={field.value}
                           className="flex flex-col space-y-2"
                         >
                             <FormItem className="flex items-center space-x-3 space-y-0 p-3 border rounded-md hover:bg-secondary/50 transition-colors">

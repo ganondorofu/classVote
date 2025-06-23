@@ -37,30 +37,29 @@ export function ResultsDisplay({ vote, submissions }: ResultsDisplayProps) {
   const aggregateResults = () => {
     const counts: { [key: string]: number } = {};
     submissions.forEach(sub => {
-      if (sub.submissionValue === undefined) return; // Skip empty if not allowed / not meaningful
+      if (!sub.submissionValue) return;
 
-      try {
-        if (vote.voteType === 'multiple_choice' || vote.voteType === 'yes_no') {
-          const selectedOptions = JSON.parse(sub.submissionValue);
-          if (Array.isArray(selectedOptions)) {
-            selectedOptions.forEach(optionValue => {
-              const text = getOptionText(optionValue);
-              counts[text] = (counts[text] || 0) + 1;
-            });
+      if (vote.voteType === 'multiple_choice' || vote.voteType === 'yes_no') {
+        let selectedOptions: string[] = [];
+        try {
+          const parsed = JSON.parse(sub.submissionValue);
+          if (Array.isArray(parsed)) {
+            selectedOptions = parsed;
           }
-        } else { // free_text (which is handled differently below)
-          const value = sub.submissionValue;
-          counts[value] = (counts[value] || 0) + 1;
+        } catch (e) {
+          console.error("Could not parse submission value as JSON array:", sub.submissionValue, e);
+          // Don't process this submission if it's malformed for this vote type
+          return;
         }
-      } catch (e) {
-        console.error("Error parsing submission value:", sub.submissionValue, e);
-        // Fallback for non-JSON string values if any legacy data exists or for yes/no
-        if (vote.voteType === 'multiple_choice' || vote.voteType === 'yes_no') {
-            const text = getOptionText(sub.submissionValue);
-            counts[text] = (counts[text] || 0) + 1;
-        } else {
-             counts[sub.submissionValue] = (counts[sub.submissionValue] || 0) + 1;
-        }
+        
+        selectedOptions.forEach(optionValue => {
+          const text = getOptionText(optionValue);
+          counts[text] = (counts[text] || 0) + 1;
+        });
+
+      } else { // free_text
+        const value = sub.submissionValue;
+        counts[value] = (counts[value] || 0) + 1;
       }
     });
     return Object.entries(counts).map(([name, value]) => ({ name, count: value }));
