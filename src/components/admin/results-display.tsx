@@ -30,13 +30,22 @@ export function ResultsDisplay({ vote, submissions }: ResultsDisplayProps) {
   const isAnonymous = vote.visibilitySetting === 'anonymous';
 
   const sortedFreeTextSubmissions = useMemo(() => {
-    if (vote.voteType !== 'free_text') return submissions;
+    if (vote.voteType !== 'free_text') return [];
 
-    const sortableItems = [...submissions];
+    let itemsToDisplay;
+    if (isAnonymous) {
+      itemsToDisplay = submissions.filter(s => s.voterAttendanceNumber === 'ANONYMOUS_CONTENT');
+    } else if (canShowIndividualVotes) {
+      itemsToDisplay = submissions;
+    } else {
+      return []; // Not visible and not anonymous, show nothing
+    }
+
+    const sortableItems = [...itemsToDisplay];
     if (sortConfig.key) {
       sortableItems.sort((a, b) => {
         let valA, valB;
-        if (sortConfig.key === 'number') {
+        if (sortConfig.key === 'number' && !isAnonymous) {
           valA = parseInt(a.voterAttendanceNumber, 10);
           valB = parseInt(b.voterAttendanceNumber, 10);
         } else { // 'text'
@@ -48,13 +57,11 @@ export function ResultsDisplay({ vote, submissions }: ResultsDisplayProps) {
         if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
         return 0;
       });
-    }
-    // Default sort by attendance number (ascending)
-    else {
-       sortableItems.sort((a, b) => parseInt(a.voterAttendanceNumber, 10) - parseInt(b.voterAttendanceNumber, 10));
+    } else { // Default sort by submission time
+       sortableItems.sort((a,b) => new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime());
     }
     return sortableItems;
-  }, [submissions, sortConfig, vote.voteType]);
+  }, [submissions, sortConfig, vote.voteType, canShowIndividualVotes, isAnonymous]);
 
   const handleSort = (key: 'number' | 'text') => {
     let direction: 'asc' | 'desc' = 'asc';
@@ -87,11 +94,11 @@ export function ResultsDisplay({ vote, submissions }: ResultsDisplayProps) {
             selectedOptions = parsed;
           }
         } catch (e) {
-          if (typeof sub.submissionValue === 'string' && sub.submissionValue.trim() !== '') {
+          if (typeof sub.submissionValue === 'string' && sub.submissionValue.trim() !== '' && !sub.submissionValue.startsWith(USER_OPTION_PREFIX)) {
             selectedOptions = [sub.submissionValue];
           } else {
-            console.warn("Could not parse submission value:", sub.submissionValue, e);
-            return;
+            console.warn("Could not parse or is custom submission value:", sub.submissionValue, e);
+            // Don't return, as custom options need to be handled
           }
         }
         
@@ -120,29 +127,35 @@ export function ResultsDisplay({ vote, submissions }: ResultsDisplayProps) {
     }
 
     if (vote.voteType === "free_text") {
+       const submissionCount = isAnonymous
+        ? submissions.filter(s => s.voterAttendanceNumber !== 'ANONYMOUS_CONTENT').length
+        : submissions.length;
+        
       return (
         <>
           <h4 className="text-md font-semibold mb-2 flex items-center">
             <MessageSquare className="mr-2 h-5 w-5 text-primary"/>
-            提出内容 ({submissions.length}件):
+            提出内容 ({submissionCount}件):
           </h4>
-          {isAnonymous || !canShowIndividualVotes ? (
+          {(!canShowIndividualVotes && !isAnonymous) ? (
             <p className="text-sm text-muted-foreground flex items-center">
                 <EyeOff className="mr-2 h-4 w-4"/>
-                公開設定により、個別の自由記述内容は非表示です。集計された件数のみ表示されます。
+                公開設定により、個別の自由記述内容は非表示です。
             </p>
           ) : (
             <>
               <div className="flex items-center gap-2 mb-3">
                   <span className="text-sm font-medium text-muted-foreground">並べ替え:</span>
-                  <Button variant="outline" size="sm" onClick={() => handleSort('number')}>
-                      出席番号
-                      {sortConfig.key === 'number' ? (
-                          sortConfig.direction === 'asc' ? <ArrowUp className="ml-2 h-4 w-4" /> : <ArrowDown className="ml-2 h-4 w-4" />
-                      ) : (
-                          <ArrowUpDown className="ml-2 h-4 w-4 text-muted-foreground" />
-                      )}
-                  </Button>
+                  {!isAnonymous && (
+                    <Button variant="outline" size="sm" onClick={() => handleSort('number')}>
+                        出席番号
+                        {sortConfig.key === 'number' ? (
+                            sortConfig.direction === 'asc' ? <ArrowUp className="ml-2 h-4 w-4" /> : <ArrowDown className="ml-2 h-4 w-4" />
+                        ) : (
+                            <ArrowUpDown className="ml-2 h-4 w-4 text-muted-foreground" />
+                        )}
+                    </Button>
+                  )}
                   <Button variant="outline" size="sm" onClick={() => handleSort('text')}>
                       回答内容
                       {sortConfig.key === 'text' ? (
@@ -153,15 +166,23 @@ export function ResultsDisplay({ vote, submissions }: ResultsDisplayProps) {
                   </Button>
               </div>
               <ScrollArea className="h-60 w-full rounded-md border p-3 bg-background">
-                <ul className="space-y-2">
-                  {sortedFreeTextSubmissions.map(sub => (
-                    <li key={sub.id} className="text-sm p-2 border-b flex justify-between items-center">
-                      <span>
-                          <span className="font-medium">{sub.voterAttendanceNumber}番: </span>{sub.submissionValue}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
+                {sortedFreeTextSubmissions.length === 0 ? (
+                   <p className="text-muted-foreground text-center py-4">まだ提出はありません。</p>
+                ) : (
+                  <ul className="space-y-2">
+                    {sortedFreeTextSubmissions.map(sub => (
+                      <li key={sub.id} className="text-sm p-2 border-b flex justify-between items-center">
+                        {isAnonymous ? (
+                            <span>{sub.submissionValue}</span>
+                        ) : (
+                            <span>
+                                <span className="font-medium">{sub.voterAttendanceNumber}番: </span>{sub.submissionValue}
+                            </span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </ScrollArea>
             </>
           )}
@@ -205,7 +226,7 @@ export function ResultsDisplay({ vote, submissions }: ResultsDisplayProps) {
             </h4>
             <ScrollArea className="h-40 w-full rounded-md border p-3 bg-background">
               <ul className="space-y-1">
-                {submissions.map(sub => {
+                {submissions.sort((a,b) => parseInt(a.voterAttendanceNumber, 10) - parseInt(b.voterAttendanceNumber, 10)).map(sub => {
                     let displayValue = "";
                     if (sub.submissionValue === undefined || sub.submissionValue === null) {
                         displayValue = "（空の投票）";
@@ -216,7 +237,10 @@ export function ResultsDisplay({ vote, submissions }: ResultsDisplayProps) {
                                 displayValue = parsedValues.map(val => getOptionText(val)).join(", ");
                             }
                         } catch {
-                            displayValue = getOptionText(sub.submissionValue); // Fallback for non-JSON
+                            // This might be a single string for older data or non-JSON, handle it
+                             if (typeof sub.submissionValue === 'string') {
+                                displayValue = getOptionText(sub.submissionValue);
+                             }
                         }
                     } else { 
                          displayValue = sub.submissionValue;
@@ -255,3 +279,4 @@ export function ResultsDisplay({ vote, submissions }: ResultsDisplayProps) {
     </Card>
   );
 }
+
