@@ -57,7 +57,7 @@ export function useVoteStore() {
       options: data.options?.map((opt: any, index: number) => ({ 
         id: opt.id || `${docData.id}_opt_${index}`, 
         text: opt.text,
-      })),
+      })) || [],
       visibilitySetting: data.visibilitySetting,
       status: data.status,
       createdAt: (data.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
@@ -183,9 +183,56 @@ export function useVoteStore() {
   }, [toast]);
 
   const addSubmission = useCallback(async (submissionData: Omit<Submission, 'id' | 'submittedAt'>): Promise<Submission> => {
+    const vote = getVoteById(submissionData.voteId);
+    if (!vote) {
+      toast({ title: "エラー", description: "投票が見つかりませんでした。", variant: "destructive" });
+      throw new Error("Vote not found");
+    }
+
+    const submittedAt = Timestamp.fromDate(new Date());
+
+    if (vote.voteType === 'free_text' && vote.visibilitySetting === 'anonymous') {
+      try {
+        const batch = writeBatch(db);
+
+        // Document 1: The voter stub (to prevent double voting)
+        const stubDocRef = doc(collection(db, "submissions"));
+        const stubPayload = {
+          voteId: submissionData.voteId,
+          voterAttendanceNumber: submissionData.voterAttendanceNumber,
+          submissionValue: 'ANONYMOUS_VOTED_STUB',
+          submittedAt,
+        };
+        batch.set(stubDocRef, stubPayload);
+
+        // Document 2: The anonymous content
+        const contentDocRef = doc(collection(db, "submissions"));
+        const contentPayload = {
+          voteId: submissionData.voteId,
+          voterAttendanceNumber: 'ANONYMOUS_CONTENT',
+          submissionValue: submissionData.submissionValue,
+          submittedAt,
+        };
+        batch.set(contentDocRef, contentPayload);
+        
+        await batch.commit();
+
+        return {
+          id: stubDocRef.id,
+          ...stubPayload,
+          submittedAt: submittedAt.toDate().toISOString(),
+        };
+      } catch (error) {
+        console.error("Error adding anonymous free-text submission:", error);
+        toast({ title: "エラー", description: "匿名の投票の提出に失敗しました。", variant: "destructive" });
+        throw error;
+      }
+    }
+
+    // Default logic for all other vote types
     const submissionPayload = {
       ...submissionData,
-      submittedAt: Timestamp.fromDate(new Date()),
+      submittedAt: submittedAt,
     };
     try {
       const docRef = await addDoc(collection(db, "submissions"), submissionPayload);
@@ -195,7 +242,8 @@ export function useVoteStore() {
       toast({ title: "エラー", description: "投票の提出に失敗しました。", variant: "destructive" });
       throw error;
     }
-  }, [toast]);
+  }, [toast, getVoteById, votes]);
+
 
   const getSubmissionsByVoteId = useCallback((voteId: string): Submission[] => {
     return submissions.filter(submission => submission.voteId === voteId);
@@ -253,9 +301,18 @@ export function useVoteStore() {
       return;
     }
     
-    const submissionToDelete = submissions.find(s => s.voteId === request.voteId && s.voterAttendanceNumber === request.voterAttendanceNumber);
+    // For anonymous free-text votes, we need to delete the stub. For others, the actual submission.
+    const vote = getVoteById(request.voteId);
+    const isAnonymousFreeText = vote?.voteType === 'free_text' && vote?.visibilitySetting === 'anonymous';
+    const valueToFind = isAnonymousFreeText ? 'ANONYMOUS_VOTED_STUB' : undefined;
+
+    const submissionToDelete = submissions.find(s => 
+      s.voteId === request.voteId && 
+      s.voterAttendanceNumber === request.voterAttendanceNumber &&
+      (valueToFind ? s.submissionValue === valueToFind : true)
+    );
+
     if (!submissionToDelete) {
-      // The submission might have been deleted already. Just delete the request.
       try {
         await deleteDoc(doc(db, "resetRequests", requestId));
       } catch (e) {
@@ -275,7 +332,7 @@ export function useVoteStore() {
       toast({ title: "エラー", description: "リセットの承認中にエラーが発生しました。", variant: "destructive" });
       throw error;
     }
-  }, [submissions, resetRequests, toast]);
+  }, [submissions, resetRequests, toast, getVoteById]);
 
   return {
     votes,
