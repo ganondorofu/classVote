@@ -25,6 +25,7 @@ import { useToast } from "@/hooks/use-toast";
 import type { Vote, VoteOption } from "@/lib/store-types";
 import { Loader2, CheckCircle, AlertTriangle, Send, Eye, PlusCircle, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Label } from '@/components/ui/label';
 
 interface StudentVoteFormProps {
   vote: Vote;
@@ -64,7 +65,7 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
       }
     } else if (currentVote.voteType === 'yes_no') {
       if (currentVote.allowEmptyVotes) {
-        submissionValueSchema = z.enum(["yes", "no"]).optional();
+        submissionValueSchema = z.string().optional();
       } else {
          submissionValueSchema = z.enum(["yes", "no"], {required_error: "「はい」または「いいえ」を選択してください。"});
       }
@@ -419,32 +420,31 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
                                 render={({ field: checkboxField }) => {
                                   const currentValues = Array.isArray(checkboxField.value) ? checkboxField.value : [];
                                   return (
-                                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 p-3 border rounded-md hover:bg-secondary/50 transition-colors">
-                                      <FormControl>
-                                        <Checkbox
-                                          checked={currentValues.includes(option.id)}
-                                          onCheckedChange={(checked) => {
-                                            return checked
-                                              ? checkboxField.onChange([...currentValues, option.id])
-                                              : checkboxField.onChange(
-                                                  currentValues.filter(
-                                                    (value) => value !== option.id
-                                                  )
-                                                );
-                                          }}
-                                        />
-                                      </FormControl>
-                                      <FormLabel className="font-normal text-base cursor-pointer flex-1">
+                                    <div className="flex flex-row items-start space-x-3 space-y-0 p-3 border rounded-md hover:bg-secondary/50 transition-colors">
+                                      <Checkbox
+                                        checked={currentValues.includes(option.id)}
+                                        onCheckedChange={(checked) => {
+                                          return checked
+                                            ? checkboxField.onChange([...currentValues, option.id])
+                                            : checkboxField.onChange(
+                                                currentValues.filter(
+                                                  (value) => value !== option.id
+                                                )
+                                              );
+                                        }}
+                                        id={`checkbox-${option.id}`}
+                                      />
+                                      <Label htmlFor={`checkbox-${option.id}`} className="font-normal text-base cursor-pointer flex-1">
                                         {option.text}
-                                      </FormLabel>
-                                    </FormItem>
+                                      </Label>
+                                    </div>
                                   );
                                 }}
                               />
                             ))}
                             {vote.allowAddingOptions && (
                                 <div className="space-y-3 pt-2">
-                                    <FormLabel className="text-sm font-medium">その他（自由記述の選択肢）:</FormLabel>
+                                    <Label className="text-sm font-medium">その他（自由記述の選択肢）:</Label>
                                     {multipleCustomFields.map((item, index) => (
                                         <div key={item.id} className="flex items-center space-x-2">
                                             <FormField
@@ -454,11 +454,9 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
                                                     <Input
                                                         type="text"
                                                         placeholder={`カスタム選択肢 ${index + 1}`}
-                                                        name={customTextField.name}
                                                         value={customTextField.value || ""}
                                                         onChange={customTextField.onChange}
                                                         onBlur={customTextField.onBlur}
-                                                        ref={customTextField.ref}
                                                         className="flex-1"
                                                     />
                                                 )}
@@ -484,32 +482,24 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
                             className="flex flex-col space-y-2"
                           >
                             {vote.options.map((option) => (
-                              <FormItem key={option.id} className="flex items-center space-x-3 space-y-0 p-3 border rounded-md hover:bg-secondary/50 transition-colors">
-                                <FormControl>
-                                  <RadioGroupItem value={option.id} />
-                                </FormControl>
-                                <FormLabel className="font-normal text-base cursor-pointer flex-1">{option.text}</FormLabel>
-                              </FormItem>
+                              <div key={option.id} className="flex items-center space-x-3 space-y-0 p-3 border rounded-md hover:bg-secondary/50 transition-colors">
+                                <RadioGroupItem value={option.id} id={`radio-${option.id}`} />
+                                <Label htmlFor={`radio-${option.id}`} className="font-normal text-base cursor-pointer flex-1">{option.text}</Label>
+                              </div>
                             ))}
                             {vote.allowAddingOptions && (
                                <FormField
                                 control={submissionForm.control}
                                 name="singleCustomOptionText"
                                 render={({ field: customTextField }) => (
-                                    <FormItem className="flex items-center space-x-3 space-y-0 p-3 border rounded-md hover:bg-secondary/50 transition-colors">
-                                        <FormControl>
-                                            <RadioGroupItem
-                                                value={INTERNAL_CUSTOM_OPTION_VALUE}
-                                                id="custom-option-radio"
-                                                onClick={() => { 
-                                                   submissionForm.setValue("submissionValue", INTERNAL_CUSTOM_OPTION_VALUE, {shouldValidate: true});
-                                                }}
-                                            />
-                                        </FormControl>
+                                    <div className="flex items-center space-x-3 space-y-0 p-3 border rounded-md hover:bg-secondary/50 transition-colors">
+                                        <RadioGroupItem
+                                            value={INTERNAL_CUSTOM_OPTION_VALUE}
+                                            id="custom-option-radio"
+                                        />
                                         <Input
                                             type="text"
                                             placeholder="その他（ここに記入）"
-                                            name={customTextField.name}
                                             value={customTextField.value || ""}
                                             onChange={(e) => {
                                                 customTextField.onChange(e);
@@ -523,10 +513,9 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
                                                 }
                                             }}
                                             onBlur={customTextField.onBlur}
-                                            ref={customTextField.ref}
                                             className="flex-1"
                                         />
-                                    </FormItem>
+                                    </div>
                                 )}
                                 />
                             )}
@@ -539,14 +528,14 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
                           value={field.value || ''}
                           className="flex flex-col space-y-2"
                         >
-                            <FormItem className="flex items-center space-x-3 space-y-0 p-3 border rounded-md hover:bg-secondary/50 transition-colors">
-                                <FormControl><RadioGroupItem value="yes" /></FormControl>
-                                <FormLabel className="font-normal text-base cursor-pointer flex-1">はい / 賛成</FormLabel>
-                            </FormItem>
-                             <FormItem className="flex items-center space-x-3 space-y-0 p-3 border rounded-md hover:bg-secondary/50 transition-colors">
-                                <FormControl><RadioGroupItem value="no" /></FormControl>
-                                <FormLabel className="font-normal text-base cursor-pointer flex-1">いいえ / 反対</FormLabel>
-                            </FormItem>
+                            <div className="flex items-center space-x-3 space-y-0 p-3 border rounded-md hover:bg-secondary/50 transition-colors">
+                                <RadioGroupItem value="yes" id="radio-yes"/>
+                                <Label htmlFor="radio-yes" className="font-normal text-base cursor-pointer flex-1">はい / 賛成</Label>
+                            </div>
+                             <div className="flex items-center space-x-3 space-y-0 p-3 border rounded-md hover:bg-secondary/50 transition-colors">
+                                <RadioGroupItem value="no" id="radio-no" />
+                                <Label htmlFor="radio-no" className="font-normal text-base cursor-pointer flex-1">いいえ / 反対</Label>
+                            </div>
                         </RadioGroup>
                       )}
                     </div>
@@ -571,3 +560,6 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
     </Card>
   );
 }
+
+
+    
