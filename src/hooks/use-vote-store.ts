@@ -34,6 +34,7 @@ interface AddVoteData {
   voteType: VoteType;
   visibilitySetting: VisibilitySetting;
   allowEmptyVotes?: boolean;
+  minCharacters?: number;
   options?: string[];
   allowMultipleSelections?: boolean;
   allowAddingOptions?: boolean;
@@ -63,6 +64,7 @@ export function useVoteStore() {
       createdAt: (data.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
       closedAt: (data.closedAt as Timestamp)?.toDate().toISOString(),
       allowEmptyVotes: data.allowEmptyVotes ?? false,
+      minCharacters: data.minCharacters ?? 0,
       allowMultipleSelections: data.allowMultipleSelections ?? false,
       allowAddingOptions: data.allowAddingOptions ?? false,
     };

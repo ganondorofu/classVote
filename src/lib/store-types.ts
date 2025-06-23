@@ -19,6 +19,7 @@ export interface Vote {
   createdAt: string; // ISO string
   closedAt?: string; // ISO string
   allowEmptyVotes?: boolean;
+  minCharacters?: number; // For free_text
   // New fields for multiple_choice enhancements
   allowMultipleSelections?: boolean; // For multiple_choice: true if voters can select more than one option
   allowAddingOptions?: boolean; // For multiple_choice: true if voters can add their own options
