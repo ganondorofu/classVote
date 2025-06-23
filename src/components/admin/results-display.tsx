@@ -29,6 +29,8 @@ export function ResultsDisplay({ vote, submissions }: ResultsDisplayProps) {
     if (value.startsWith(USER_OPTION_PREFIX)) {
       return `（自由記述） ${value.substring(USER_OPTION_PREFIX.length)}`;
     }
+    if (value === 'yes') return 'はい / 賛成';
+    if (value === 'no') return 'いいえ / 反対';
     return vote.options?.find(opt => opt.id === value)?.text || "不明な選択肢";
   };
   
@@ -38,7 +40,7 @@ export function ResultsDisplay({ vote, submissions }: ResultsDisplayProps) {
       if (sub.submissionValue === undefined) return; // Skip empty if not allowed / not meaningful
 
       try {
-        if (vote.voteType === 'multiple_choice' && vote.allowMultipleSelections) {
+        if (vote.voteType === 'multiple_choice' || vote.voteType === 'yes_no') {
           const selectedOptions = JSON.parse(sub.submissionValue);
           if (Array.isArray(selectedOptions)) {
             selectedOptions.forEach(optionValue => {
@@ -46,21 +48,19 @@ export function ResultsDisplay({ vote, submissions }: ResultsDisplayProps) {
               counts[text] = (counts[text] || 0) + 1;
             });
           }
-        } else if (vote.voteType === 'multiple_choice') { // Single select multiple choice
-            const selectedOptions = JSON.parse(sub.submissionValue); // Expects an array, even for single select now
-            if (Array.isArray(selectedOptions) && selectedOptions.length > 0) {
-                 const text = getOptionText(selectedOptions[0]);
-                 counts[text] = (counts[text] || 0) + 1;
-            }
-        } else { // yes_no or free_text (though free_text is handled differently below)
+        } else { // free_text (which is handled differently below)
           const value = sub.submissionValue;
           counts[value] = (counts[value] || 0) + 1;
         }
       } catch (e) {
         console.error("Error parsing submission value:", sub.submissionValue, e);
-        // Fallback for non-JSON string values if any legacy data exists or for yes/no, free_text
-         const value = (vote.voteType === 'multiple_choice' || vote.voteType === 'yes_no') ? getOptionText(sub.submissionValue) : sub.submissionValue;
-         counts[value] = (counts[value] || 0) + 1;
+        // Fallback for non-JSON string values if any legacy data exists or for yes/no
+        if (vote.voteType === 'multiple_choice' || vote.voteType === 'yes_no') {
+            const text = getOptionText(sub.submissionValue);
+            counts[text] = (counts[text] || 0) + 1;
+        } else {
+             counts[sub.submissionValue] = (counts[sub.submissionValue] || 0) + 1;
+        }
       }
     });
     return Object.entries(counts).map(([name, value]) => ({ name, count: value }));
@@ -146,7 +146,7 @@ export function ResultsDisplay({ vote, submissions }: ResultsDisplayProps) {
                     let displayValue = "";
                     if (sub.submissionValue === undefined) {
                         displayValue = "（空の投票）";
-                    } else if (vote.voteType === 'multiple_choice') {
+                    } else if (vote.voteType === 'multiple_choice' || vote.voteType === 'yes_no') {
                         try {
                             const parsedValues = JSON.parse(sub.submissionValue);
                             if (Array.isArray(parsedValues)) {
@@ -157,8 +157,8 @@ export function ResultsDisplay({ vote, submissions }: ResultsDisplayProps) {
                         } catch {
                             displayValue = getOptionText(sub.submissionValue); // Fallback for non-JSON
                         }
-                    } else { // yes_no
-                         displayValue = getOptionText(sub.submissionValue);
+                    } else { // Fallback for any other type, though free_text is handled above
+                         displayValue = sub.submissionValue;
                     }
                     if (!displayValue && vote.allowEmptyVotes) displayValue = "（空の投票）";
 

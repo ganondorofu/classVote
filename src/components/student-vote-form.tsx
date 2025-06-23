@@ -213,12 +213,13 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
             finalSelectedOptionsCount = 1; 
         }
     } else { // yes_no
-        finalSubmissionValue = data.submissionValue as string | undefined;
-        if (finalSubmissionValue) {
+        const selectedValue = data.submissionValue as string | undefined;
+        if (selectedValue) {
+            finalSubmissionValue = JSON.stringify([selectedValue]);
             finalSelectedOptionsCount = 1;
         } else if (vote.allowEmptyVotes) {
-            finalSubmissionValue = undefined; 
-             finalSelectedOptionsCount = 1; 
+            finalSubmissionValue = JSON.stringify([]);
+            finalSelectedOptionsCount = 1;
         }
     }
     
@@ -234,9 +235,8 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
     }
     
     if (finalSelectedOptionsCount === 0 && vote.allowEmptyVotes) {
-        if (vote.voteType === 'multiple_choice') finalSubmissionValue = JSON.stringify([]);
+        if (vote.voteType === 'multiple_choice' || vote.voteType === 'yes_no') finalSubmissionValue = JSON.stringify([]);
         else if (vote.voteType === 'free_text') finalSubmissionValue = "";
-        else finalSubmissionValue = undefined; 
     }
 
 
@@ -572,5 +572,3 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
     </Card>
   );
 }
-
-    
