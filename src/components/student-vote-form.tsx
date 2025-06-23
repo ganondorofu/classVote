@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm, Controller } from "react-hook-form";
+import { useForm, Controller, useFieldArray } from "react-hook-form";
 import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import {
@@ -58,11 +58,19 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
     let submissionValueSchema;
 
     if (currentVote.voteType === 'free_text') {
-      submissionValueSchema = z.string().max(500, "回答が長すぎます。500文字以内で入力してください。");
-      if (currentVote.allowEmptyVotes) {
-        submissionValueSchema = submissionValueSchema.optional().default("");
+      let schema = z.string().max(500, "回答が長すぎます。500文字以内で入力してください。");
+      const minChars = currentVote.minCharacters ?? 0;
+
+      if (minChars > 0) {
+        schema = schema.min(minChars, `最低${minChars}文字で入力してください。`);
+      } else if (!currentVote.allowEmptyVotes) {
+        schema = schema.min(1, "回答を入力してください。");
+      }
+      
+      if (currentVote.allowEmptyVotes && minChars === 0) {
+        submissionValueSchema = schema.optional().default("");
       } else {
-        submissionValueSchema = submissionValueSchema.min(1, "回答を入力してください。");
+        submissionValueSchema = schema;
       }
     } else if (currentVote.voteType === 'yes_no') {
        submissionValueSchema = z.string({required_error: "「はい」または「いいえ」を選択してください。"});
@@ -192,7 +200,7 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
 
     } else if (vote.voteType === 'free_text') {
         finalSubmissionValue = typeof data.submissionValue === 'string' ? data.submissionValue.trim() : "";
-        if (finalSubmissionValue === "" && !vote.allowEmptyVotes) {
+        if (finalSubmissionValue === "" && !vote.allowEmptyVotes && (vote.minCharacters ?? 0) === 0) {
           toast({ title: "エラー", description: "回答を入力してください。", variant: "destructive" });
           setIsLoading(false);
           return;
@@ -406,86 +414,94 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
                     <FormControl>
                       <>
                         {vote.voteType === "free_text" && (
-                            <Textarea placeholder="ここに回答を入力してください..." {...field} value={typeof field.value === 'string' ? field.value : ""} autoComplete="off" rows={5} />
+                          <Textarea placeholder="ここに回答を入力してください..." {...field} value={typeof field.value === 'string' ? field.value : ""} autoComplete="off" rows={5} />
                         )}
 
                         {vote.voteType === "multiple_choice" && vote.options && !vote.allowMultipleSelections && (
-                          <RadioGroup
-                            onValueChange={(value) => {
-                              field.onChange(value);
-                              // If a predefined option is selected, clear the custom text field
-                              if (value !== INTERNAL_CUSTOM_OPTION_VALUE) {
-                                submissionForm.setValue("singleCustomOptionText", "");
-                              }
-                            }}
-                            value={field.value || ''}
-                            className="flex flex-col space-y-2"
-                          >
-                            {vote.options.map((option) => (
-                              <FormItem key={option.id} className="flex items-center space-x-3 p-3 border rounded-md hover:bg-secondary/50 transition-colors">
-                                <FormControl>
-                                  <RadioGroupItem value={option.id} id={option.id} />
-                                </FormControl>
-                                <Label htmlFor={option.id} className="font-normal text-base flex-1 cursor-pointer">
-                                  {option.text}
-                                </Label>
-                              </FormItem>
-                            ))}
-                            {vote.allowAddingOptions && (
-                              <FormItem className="flex items-center space-x-3 p-3 border rounded-md hover:bg-secondary/50 transition-colors">
-                                <FormControl>
-                                  <RadioGroupItem value={INTERNAL_CUSTOM_OPTION_VALUE} id="custom-option-radio" />
-                                </FormControl>
-                                <Label htmlFor="custom-option-radio" className="font-normal text-base flex-1 cursor-pointer">
-                                  <FormField
-                                    control={submissionForm.control}
-                                    name="singleCustomOptionText"
-                                    render={({ field: customTextField }) => (
-                                      <Input
-                                        type="text"
-                                        placeholder="その他（ここに記入）"
-                                        className="w-full bg-transparent border-0 focus-visible:ring-0 focus-visible:ring-offset-0 p-0 h-auto"
-                                        {...customTextField}
-                                        onFocus={() => {
-                                          if (submissionForm.getValues("submissionValue") !== INTERNAL_CUSTOM_OPTION_VALUE) {
-                                            submissionForm.setValue("submissionValue", INTERNAL_CUSTOM_OPTION_VALUE, { shouldValidate: true });
-                                          }
-                                        }}
+                          <Controller
+                            control={submissionForm.control}
+                            name="submissionValue"
+                            render={({ field: radioField }) => (
+                              <RadioGroup
+                                onValueChange={(value) => {
+                                  radioField.onChange(value);
+                                  if (value !== INTERNAL_CUSTOM_OPTION_VALUE) {
+                                    submissionForm.setValue("singleCustomOptionText", "");
+                                  }
+                                }}
+                                value={radioField.value || ''}
+                                className="flex flex-col space-y-2"
+                              >
+                                {vote.options?.map((option) => (
+                                  <div key={option.id} className="flex items-center space-x-3 p-3 border rounded-md hover:bg-secondary/50 transition-colors">
+                                    <RadioGroupItem value={option.id} id={`radio-${option.id}`} />
+                                    <Label htmlFor={`radio-${option.id}`} className="font-normal text-base flex-1 cursor-pointer">
+                                      {option.text}
+                                    </Label>
+                                  </div>
+                                ))}
+                                {vote.allowAddingOptions && (
+                                  <div className="flex items-center space-x-3 p-3 border rounded-md hover:bg-secondary/50 transition-colors">
+                                    <RadioGroupItem value={INTERNAL_CUSTOM_OPTION_VALUE} id="custom-option-radio" />
+                                    <Label htmlFor="custom-option-radio" className="font-normal text-base flex-1 cursor-pointer">
+                                      <FormField
+                                        control={submissionForm.control}
+                                        name="singleCustomOptionText"
+                                        render={({ field: customTextField }) => (
+                                          <Input
+                                            type="text"
+                                            placeholder="その他（ここに記入）"
+                                            className="w-full bg-transparent border-0 focus-visible:ring-0 focus-visible:ring-offset-0 p-0 h-auto"
+                                            {...customTextField}
+                                            onFocus={() => {
+                                              if (submissionForm.getValues("submissionValue") !== INTERNAL_CUSTOM_OPTION_VALUE) {
+                                                submissionForm.setValue("submissionValue", INTERNAL_CUSTOM_OPTION_VALUE, { shouldValidate: true });
+                                              }
+                                            }}
+                                          />
+                                        )}
                                       />
-                                    )}
-                                  />
-                                </Label>
-                              </FormItem>
+                                    </Label>
+                                  </div>
+                                )}
+                              </RadioGroup>
                             )}
-                          </RadioGroup>
+                          />
                         )}
 
                         {vote.voteType === "yes_no" && (
-                          <RadioGroup
-                            onValueChange={field.onChange}
-                            value={field.value || ''}
-                            className="flex flex-col space-y-2"
-                          >
-                            <FormItem className="flex items-center space-x-3 p-3 border rounded-md hover:bg-secondary/50 transition-colors">
-                              <FormControl>
-                                <RadioGroupItem value="yes" id="radio-yes" />
-                              </FormControl>
-                              <Label htmlFor="radio-yes" className="font-normal text-base flex-1 cursor-pointer">
-                                はい / 賛成
-                              </Label>
-                            </FormItem>
-                            <FormItem className="flex items-center space-x-3 p-3 border rounded-md hover:bg-secondary/50 transition-colors">
-                              <FormControl>
-                                <RadioGroupItem value="no" id="radio-no" />
-                              </FormControl>
-                              <Label htmlFor="radio-no" className="font-normal text-base flex-1 cursor-pointer">
-                                いいえ / 反対
-                              </Label>
-                            </FormItem>
-                          </RadioGroup>
+                          <Controller
+                            control={submissionForm.control}
+                            name="submissionValue"
+                            render={({ field: radioField }) => (
+                              <RadioGroup
+                                onValueChange={radioField.onChange}
+                                value={radioField.value || ''}
+                                className="flex flex-col space-y-2"
+                              >
+                                <div className="flex items-center space-x-3 p-3 border rounded-md hover:bg-secondary/50 transition-colors">
+                                  <RadioGroupItem value="yes" id="radio-yes" />
+                                  <Label htmlFor="radio-yes" className="font-normal text-base flex-1 cursor-pointer">
+                                    はい / 賛成
+                                  </Label>
+                                </div>
+                                <div className="flex items-center space-x-3 p-3 border rounded-md hover:bg-secondary/50 transition-colors">
+                                  <RadioGroupItem value="no" id="radio-no" />
+                                  <Label htmlFor="radio-no" className="font-normal text-base flex-1 cursor-pointer">
+                                    いいえ / 反対
+                                  </Label>
+                                </div>
+                              </RadioGroup>
+                            )}
+                          />
                         )}
                       </>
                     </FormControl>
+                    {(vote.minCharacters ?? 0) > 0 && vote.voteType === 'free_text' && (
+                        <FormDescription>
+                            最低 {vote.minCharacters} 文字で入力してください。
+                        </FormDescription>
+                    )}
                     {fieldState.error && <FormMessage>{fieldState.error.message}</FormMessage>}
                      {submissionForm.formState.errors.singleCustomOptionText && <FormMessage>{submissionForm.formState.errors.singleCustomOptionText.message}</FormMessage>}
                   </FormItem>

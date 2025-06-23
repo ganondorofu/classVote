@@ -36,6 +36,7 @@ const voteFormSchema = z.object({
   adminPassword: z.string().length(4, { message: "管理用パスワードは4桁の数字で入力してください。" }).regex(/^\d{4}$/, { message: "管理用パスワードは4桁の数字で入力してください。" }),
   totalExpectedVoters: z.coerce.number().int().min(1, { message: "最低1人の投票者が必要です。" }),
   voteType: z.enum(["free_text", "multiple_choice", "yes_no"]),
+  minCharacters: z.coerce.number().int().min(0, { message: "0以上の数値を入力してください。" }).optional(),
   options: z.array(z.object({ text: z.string() })).optional(), // Relaxed validation here
   visibilitySetting: z.enum(["everyone", "admin_only", "anonymous"]),
   allowEmptyVotes: z.boolean().optional(),
@@ -77,6 +78,7 @@ export function CreateVoteForm() {
       adminPassword: "",
       totalExpectedVoters: 38,
       voteType: "yes_no",
+      minCharacters: 0,
       options: [{ text: "" }, { text: "" }],
       visibilitySetting: "admin_only",
       allowEmptyVotes: false,
@@ -106,6 +108,9 @@ export function CreateVoteForm() {
             options: data.options?.map(opt => opt.text).filter(text => text.trim() !== ''),
             allowMultipleSelections: data.allowMultipleSelections,
             allowAddingOptions: data.allowAddingOptions,
+        }),
+        ...(data.voteType === "free_text" && {
+            minCharacters: data.minCharacters,
         }),
       };
       
@@ -209,6 +214,27 @@ export function CreateVoteForm() {
                 </FormItem>
               )}
             />
+
+            {voteType === "free_text" && (
+                <div className="space-y-4 p-4 border rounded-md bg-secondary/30">
+                    <FormField
+                        control={form.control}
+                        name="minCharacters"
+                        render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>最小文字数</FormLabel>
+                            <FormControl>
+                            <Input type="number" {...field} min="0" autoComplete="off" />
+                            </FormControl>
+                            <FormDescription>
+                            自由記述で要求する最小文字数を設定します。0の場合は制限しません。
+                            </FormDescription>
+                            <FormMessage />
+                        </FormItem>
+                        )}
+                    />
+                </div>
+            )}
 
             {voteType === "multiple_choice" && (
               <div className="space-y-4 p-4 border rounded-md bg-secondary/30">
