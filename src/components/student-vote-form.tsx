@@ -1,8 +1,9 @@
+
 "use client"
 
 import { useState, useEffect } from 'react';
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm, Controller, useFieldArray } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import {
@@ -21,8 +22,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { useVoteStore } from "@/hooks/use-vote-store";
 import { useToast } from "@/hooks/use-toast";
-import type { Vote, VoteOption } from "@/lib/store-types";
-import { Loader2, CheckCircle, AlertTriangle, Send, Eye, PlusCircle, Trash2 } from "lucide-react";
+import type { Vote } from "@/lib/store-types";
+import { Loader2, CheckCircle, AlertTriangle, Send, Eye, PlusCircle, Trash2, RefreshCcw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Label } from '@/components/ui/label';
 
@@ -39,13 +40,14 @@ const USER_OPTION_PREFIX = "USER_OPTION:";
 const INTERNAL_CUSTOM_OPTION_VALUE = "__INTERNAL_CUSTOM_OPTION__";
 
 export function StudentVoteForm({ vote }: StudentVoteFormProps) {
-  const { addSubmission, hasVoted } = useVoteStore();
+  const { addSubmission, hasVoted, requestVoteReset, hasPendingResetRequest } = useVoteStore();
   const { toast } = useToast();
   const [currentVoter, setCurrentVoter] = useState<number | null>(null);
   const [alreadyVoted, setAlreadyVoted] = useState(false);
   const [isLoading, setIsLoading] = useState(false); // For vote submission
   const [isCheckingAttendance, setIsCheckingAttendance] = useState(false); // For attendance check
   const [showThankYou, setShowThankYou] = useState(false);
+  const [isRequestingReset, setIsRequestingReset] = useState(false);
 
   const attendanceForm = useForm<AttendanceFormValues>({
     resolver: zodResolver(attendanceSchema),
@@ -197,11 +199,7 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
         }
 
         finalSelectedOptionsCount = selectedValues.length;
-        if (finalSelectedOptionsCount > 0) {
-            finalSubmissionValue = JSON.stringify(selectedValues);
-        } else if (vote.allowEmptyVotes) {
-            finalSubmissionValue = JSON.stringify([]); 
-        }
+        finalSubmissionValue = JSON.stringify(selectedValues);
 
     } else if (vote.voteType === 'free_text') {
         finalSubmissionValue = typeof data.submissionValue === 'string' ? data.submissionValue.trim() : "";
@@ -223,17 +221,12 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
     }
     
     if (finalSelectedOptionsCount === 0 && !vote.allowEmptyVotes) {
-      const isMcEmpty = vote.voteType === 'multiple_choice' && (finalSubmissionValue === undefined || finalSubmissionValue === '[]');
-      const isOtherEmpty = vote.voteType !== 'multiple_choice' && finalSubmissionValue === undefined;
-
-      if(isMcEmpty || isOtherEmpty) {
-          toast({ title: "エラー", description: "回答を選択または入力してください。", variant: "destructive" });
-          setIsLoading(false);
-          return;
-      }
+      toast({ title: "エラー", description: "回答を選択または入力してください。", variant: "destructive" });
+      setIsLoading(false);
+      return;
     }
     
-    if (finalSelectedOptionsCount === 0 && vote.allowEmptyVotes) {
+    if (finalSubmissionValue === undefined && vote.allowEmptyVotes) {
         if (vote.voteType === 'multiple_choice' || vote.voteType === 'yes_no') finalSubmissionValue = JSON.stringify([]);
         else if (vote.voteType === 'free_text') finalSubmissionValue = "";
     }
@@ -273,6 +266,20 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
         default: return '不明';
     }
   };
+  
+  const handleResetRequest = async () => {
+    if (currentVoter === null) return;
+    setIsRequestingReset(true);
+    try {
+      await requestVoteReset(vote.id, currentVoter.toString());
+      // Toast is handled in the hook
+    } catch (error) {
+       // Toast is handled in the hook
+    } finally {
+       setIsRequestingReset(false);
+    }
+  };
+
 
   if (vote.status === "closed") {
     return (
@@ -355,6 +362,8 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
   }
 
   if (alreadyVoted) {
+    const isResetPending = hasPendingResetRequest(vote.id, currentVoter.toString());
+
     return (
       <Card className="w-full max-w-lg mx-auto text-center shadow-lg">
         <CardHeader>
@@ -363,10 +372,26 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
         <CardContent>
           <CheckCircle className="mx-auto h-12 w-12 text-green-500 mb-4" />
           <p className="text-xl">出席番号 {currentVoter} は、この投票に既に投票済みです。</p>
-          {vote.visibilitySetting !== 'anonymous' && (
-             <p className="text-muted-foreground mt-2">投票内容を変更したい場合は、管理者に連絡して投票のリセットを依頼してください。</p>
-          )}
           <p className="text-muted-foreground mt-2">ご協力ありがとうございました！</p>
+          
+          {vote.visibilitySetting !== 'anonymous' && (
+            <div className="mt-6 border-t pt-6">
+              <h3 className="text-lg font-semibold mb-2">投票をやり直しますか？</h3>
+              <p className="text-sm text-muted-foreground mb-4">投票内容を変更したい場合は、管理者にリセットを申請できます。</p>
+              {isResetPending ? (
+                 <Badge variant="secondary">リセット申請が承認待ちです</Badge>
+              ) : (
+                <Button onClick={handleResetRequest} disabled={isRequestingReset} variant="secondary">
+                  {isRequestingReset ? (
+                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                     <RefreshCcw className="mr-2 h-4 w-4" />
+                  )}
+                  投票のリセットを申請する
+                </Button>
+              )}
+            </div>
+           )}
         </CardContent>
          <CardFooter className="flex justify-center">
             <Button onClick={() => { setCurrentVoter(null); attendanceForm.reset({ attendanceNumber: undefined }); }} variant="outline">
@@ -485,20 +510,16 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
                         className="flex flex-col space-y-2"
                       >
                         {vote.options.map((option) => (
-                           <FormItem key={option.id} className="flex items-center space-x-3 p-3 border rounded-md hover:bg-secondary/50 transition-colors">
-                              <FormControl>
-                                <RadioGroupItem value={option.id} id={`radio-${option.id}`} />
-                              </FormControl>
-                              <Label htmlFor={`radio-${option.id}`} className="font-normal text-base flex-1 cursor-pointer">
+                           <div key={option.id} className="flex items-center space-x-3 p-3 border rounded-md hover:bg-secondary/50 transition-colors">
+                              <RadioGroupItem value={option.id} id={option.id} />
+                              <Label htmlFor={option.id} className="font-normal text-base flex-1 cursor-pointer">
                                 {option.text}
                               </Label>
-                           </FormItem>
+                           </div>
                         ))}
                         {vote.allowAddingOptions && (
-                          <FormItem className="flex items-center space-x-3 p-3 border rounded-md hover:bg-secondary/50 transition-colors">
-                            <FormControl>
-                              <RadioGroupItem value={INTERNAL_CUSTOM_OPTION_VALUE} id="custom-option-radio" />
-                            </FormControl>
+                          <div className="flex items-center space-x-3 p-3 border rounded-md hover:bg-secondary/50 transition-colors">
+                            <RadioGroupItem value={INTERNAL_CUSTOM_OPTION_VALUE} id="custom-option-radio" />
                             <Label htmlFor="custom-option-radio" className="font-normal text-base flex-1 cursor-pointer">
                               <FormField
                                 control={submissionForm.control}
@@ -518,7 +539,7 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
                                 )}
                               />
                             </Label>
-                          </FormItem>
+                          </div>
                         )}
                       </RadioGroup>
                     )
@@ -530,22 +551,18 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
                         value={field.value || ''}
                         className="flex flex-col space-y-2"
                       >
-                         <FormItem className="flex items-center space-x-3 p-3 border rounded-md hover:bg-secondary/50 transition-colors">
-                            <FormControl>
-                              <RadioGroupItem value="yes" id="radio-yes" />
-                            </FormControl>
+                         <div className="flex items-center space-x-3 p-3 border rounded-md hover:bg-secondary/50 transition-colors">
+                            <RadioGroupItem value="yes" id="radio-yes" />
                             <Label htmlFor="radio-yes" className="font-normal text-base flex-1 cursor-pointer">
                               はい / 賛成
                             </Label>
-                        </FormItem>
-                        <FormItem className="flex items-center space-x-3 p-3 border rounded-md hover:bg-secondary/50 transition-colors">
-                           <FormControl>
+                        </div>
+                        <div className="flex items-center space-x-3 p-3 border rounded-md hover:bg-secondary/50 transition-colors">
                             <RadioGroupItem value="no" id="radio-no" />
-                           </FormControl>
                             <Label htmlFor="radio-no" className="font-normal text-base flex-1 cursor-pointer">
                               いいえ / 反対
                             </Label>
-                        </FormItem>
+                        </div>
                     </RadioGroup>
                   )}
                   {fieldState.error && <FormMessage>{fieldState.error.message}</FormMessage>}
