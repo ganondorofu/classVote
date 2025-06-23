@@ -1,7 +1,7 @@
 
 "use client"
 
-import { useState } from "react"; // Added useState
+import { useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useFieldArray } from "react-hook-form";
 import * as z from "zod";
@@ -28,7 +28,7 @@ import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useVoteStore } from "@/hooks/use-vote-store";
 import { useToast } from "@/hooks/use-toast";
-import { PlusCircle, Trash2, ArrowRight, Loader2 } from "lucide-react"; // Added Loader2
+import { PlusCircle, Trash2, ArrowRight, Loader2 } from "lucide-react";
 import type { VoteType, VisibilitySetting } from "@/lib/store-types";
 
 const voteFormSchema = z.object({
@@ -36,29 +36,31 @@ const voteFormSchema = z.object({
   adminPassword: z.string().length(4, { message: "管理用パスワードは4桁の数字で入力してください。" }).regex(/^\d{4}$/, { message: "管理用パスワードは4桁の数字で入力してください。" }),
   totalExpectedVoters: z.coerce.number().int().min(1, { message: "最低1人の投票者が必要です。" }),
   voteType: z.enum(["free_text", "multiple_choice", "yes_no"]),
-  options: z.array(z.object({ text: z.string().min(1, "選択肢のテキストは空にできません。") })).optional(),
+  options: z.array(z.object({ text: z.string() })).optional(), // Relaxed validation here
   visibilitySetting: z.enum(["everyone", "admin_only", "anonymous"]),
   allowEmptyVotes: z.boolean().optional(),
   allowMultipleSelections: z.boolean().optional(),
   allowAddingOptions: z.boolean().optional(),
 }).refine(data => {
-  if (data.voteType === "multiple_choice") {
-    return data.options && data.options.length >= 1;
+  if (data.voteType !== "multiple_choice") {
+    return true; // Skip validation if not multiple choice
   }
-  return true;
+  const validOptions = data.options?.filter(opt => opt.text.trim() !== '') ?? [];
+  return validOptions.length > 0;
 }, {
-  message: "多肢選択式の投票には最低1つの選択肢が必要です。",
+  message: "多肢選択式の投票には最低1つの有効な選択肢が必要です。",
   path: ["options"],
 }).refine(data => {
-  if (data.voteType === "multiple_choice" && !data.allowAddingOptions) {
-     return data.options && data.options.length >= 2;
+  if (data.voteType !== "multiple_choice" || data.allowAddingOptions) {
+    return true; // Skip if not mc or if adding options is allowed
   }
-  return true;
-},
-{
-  message: "投票者による選択肢追加を許可しない場合、多肢選択式の投票には最低2つの選択肢が必要です。",
+  const validOptions = data.options?.filter(opt => opt.text.trim() !== '') ?? [];
+  return validOptions.length >= 2;
+}, {
+  message: "投票者による選択肢追加を許可しない場合、有効な選択肢が最低2つ必要です。",
   path: ["options"]
 });
+
 
 type VoteFormValues = z.infer<typeof voteFormSchema>;
 
@@ -66,7 +68,7 @@ export function CreateVoteForm() {
   const router = useRouter();
   const { addVote } = useVoteStore();
   const { toast } = useToast();
-  const [isSubmitting, setIsSubmitting] = useState(false); // Added loading state
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const form = useForm<VoteFormValues>({
     resolver: zodResolver(voteFormSchema),
@@ -90,12 +92,9 @@ export function CreateVoteForm() {
 
   const voteType = form.watch("voteType");
 
-  async function onSubmit(data: VoteFormValues) { // Made onSubmit async
+  async function onSubmit(data: VoteFormValues) {
     setIsSubmitting(true);
     try {
-      // Simulate API call delay if needed
-      // await new Promise(resolve => setTimeout(resolve, 1000)); 
-
       const voteDataForStore = {
         title: data.title,
         adminPassword: data.adminPassword,
@@ -104,18 +103,18 @@ export function CreateVoteForm() {
         visibilitySetting: data.visibilitySetting as VisibilitySetting,
         allowEmptyVotes: data.allowEmptyVotes,
         ...(data.voteType === "multiple_choice" && { 
-            options: data.options?.map(opt => opt.text),
+            options: data.options?.map(opt => opt.text).filter(text => text.trim() !== ''),
             allowMultipleSelections: data.allowMultipleSelections,
             allowAddingOptions: data.allowAddingOptions,
         }),
       };
       
-      const newVote = addVote(voteDataForStore);
+      const newVote = await addVote(voteDataForStore);
       toast({
         title: "投票が作成されました！",
         description: `「${newVote.title}」が開始されました。`,
       });
-      router.push(`/`); // Changed redirect to dashboard
+      router.push(`/`);
     } catch (error) {
       toast({
         title: "エラー",
@@ -350,4 +349,3 @@ export function CreateVoteForm() {
     </Card>
   );
 }
-
