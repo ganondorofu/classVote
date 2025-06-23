@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useEffect } from 'react';
@@ -482,88 +481,65 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
                             className="flex flex-col space-y-2"
                           >
                             {vote.options.map((option) => (
-                              <Label
-                                key={option.id}
-                                htmlFor={`radio-${option.id}`}
-                                className="flex items-center space-x-3 space-y-0 p-3 border rounded-md hover:bg-secondary/50 transition-colors cursor-pointer"
-                              >
+                              <div key={option.id} className="flex items-center space-x-3 p-3 border rounded-md hover:bg-secondary/50 transition-colors">
                                 <RadioGroupItem value={option.id} id={`radio-${option.id}`} className="shrink-0" />
-                                <span className="font-normal text-base flex-1">{option.text}</span>
-                              </Label>
+                                <Label htmlFor={`radio-${option.id}`} className="font-normal text-base flex-1 cursor-pointer">
+                                  {option.text}
+                                </Label>
+                              </div>
                             ))}
                             {vote.allowAddingOptions && (
-                               <FormField
-                                control={submissionForm.control}
-                                name="singleCustomOptionText"
-                                render={({ field: customTextField }) => (
-                                  <Label
-                                    htmlFor="custom-option-radio"
-                                    className="flex items-center space-x-3 space-y-0 p-3 border rounded-md hover:bg-secondary/50 transition-colors cursor-pointer"
-                                  >
-                                    <RadioGroupItem
-                                      value={INTERNAL_CUSTOM_OPTION_VALUE}
-                                      id="custom-option-radio"
-                                      className="shrink-0"
-                                    />
-                                    <Input
-                                      type="text"
-                                      placeholder="その他（ここに記入）"
-                                      value={customTextField.value || ""}
-                                      onChange={(e) => {
-                                        customTextField.onChange(e);
-                                        if (
-                                          submissionForm.getValues("submissionValue") !==
-                                          INTERNAL_CUSTOM_OPTION_VALUE
-                                        ) {
-                                          submissionForm.setValue(
-                                            "submissionValue",
-                                            INTERNAL_CUSTOM_OPTION_VALUE,
-                                            { shouldValidate: true }
-                                          );
-                                        }
-                                      }}
-                                      onFocus={() => {
-                                        if (
-                                          submissionForm.getValues("submissionValue") !==
-                                          INTERNAL_CUSTOM_OPTION_VALUE
-                                        ) {
-                                          submissionForm.setValue(
-                                            "submissionValue",
-                                            INTERNAL_CUSTOM_OPTION_VALUE,
-                                            { shouldValidate: true }
-                                          );
-                                        }
-                                      }}
-                                      onBlur={customTextField.onBlur}
-                                      className="flex-1"
-                                    />
-                                  </Label>
-                                )}
-                              />
+                              <div className="flex items-center space-x-3 p-3 border rounded-md hover:bg-secondary/50 transition-colors">
+                                <RadioGroupItem value={INTERNAL_CUSTOM_OPTION_VALUE} id="custom-option-radio" className="shrink-0" />
+                                <Label htmlFor="custom-option-radio" className="font-normal text-base flex-1 cursor-pointer">
+                                  <FormField
+                                    control={submissionForm.control}
+                                    name="singleCustomOptionText"
+                                    render={({ field: customTextField }) => (
+                                      <Input
+                                        type="text"
+                                        placeholder="その他（ここに記入）"
+                                        className="w-full bg-transparent border-0 focus-visible:ring-0 focus-visible:ring-offset-0 p-0 h-auto"
+                                        value={customTextField.value || ""}
+                                        onChange={(e) => {
+                                          customTextField.onChange(e);
+                                          if (submissionForm.getValues("submissionValue") !== INTERNAL_CUSTOM_OPTION_VALUE) {
+                                            submissionForm.setValue("submissionValue", INTERNAL_CUSTOM_OPTION_VALUE, { shouldValidate: true });
+                                          }
+                                        }}
+                                        onFocus={() => {
+                                          if (submissionForm.getValues("submissionValue") !== INTERNAL_CUSTOM_OPTION_VALUE) {
+                                            submissionForm.setValue("submissionValue", INTERNAL_CUSTOM_OPTION_VALUE, { shouldValidate: true });
+                                          }
+                                        }}
+                                        onBlur={customTextField.onBlur}
+                                      />
+                                    )}
+                                  />
+                                </Label>
+                              </div>
                             )}
                           </RadioGroup>
                         )
                       )}
                       {vote.voteType === "yes_no" && (
                          <RadioGroup
-                          onValueChange={field.onChange}
-                          value={field.value || ''}
-                          className="flex flex-col space-y-2"
-                        >
-                          <Label
-                            htmlFor="radio-yes"
-                            className="flex items-center space-x-3 space-y-0 p-3 border rounded-md hover:bg-secondary/50 transition-colors cursor-pointer"
+                            onValueChange={field.onChange}
+                            value={field.value || ''}
+                            className="flex flex-col space-y-2"
                           >
-                            <RadioGroupItem value="yes" id="radio-yes" className="shrink-0" />
-                            <span className="font-normal text-base flex-1">はい / 賛成</span>
-                          </Label>
-                          <Label
-                            htmlFor="radio-no"
-                            className="flex items-center space-x-3 space-y-0 p-3 border rounded-md hover:bg-secondary/50 transition-colors cursor-pointer"
-                          >
-                            <RadioGroupItem value="no" id="radio-no" className="shrink-0" />
-                            <span className="font-normal text-base flex-1">いいえ / 反対</span>
-                          </Label>
+                            <div className="flex items-center space-x-3 p-3 border rounded-md hover:bg-secondary/50 transition-colors">
+                                <RadioGroupItem value="yes" id="radio-yes" className="shrink-0" />
+                                <Label htmlFor="radio-yes" className="font-normal text-base flex-1 cursor-pointer">
+                                  はい / 賛成
+                                </Label>
+                            </div>
+                            <div className="flex items-center space-x-3 p-3 border rounded-md hover:bg-secondary/50 transition-colors">
+                                <RadioGroupItem value="no" id="radio-no" className="shrink-0" />
+                                <Label htmlFor="radio-no" className="font-normal text-base flex-1 cursor-pointer">
+                                  いいえ / 反対
+                                </Label>
+                            </div>
                         </RadioGroup>
                       )}
                     </div>
@@ -590,4 +566,5 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
 }
 
 
+    
     
