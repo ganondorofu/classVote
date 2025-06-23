@@ -120,7 +120,7 @@ export function useVoteStore() {
       voteType: voteData.voteType,
       visibilitySetting: voteData.visibilitySetting,
       allowEmptyVotes: voteData.allowEmptyVotes ?? false,
-      options: voteData.options?.map(optText => ({ id: generateId(), text: optText })),
+      options: voteData.options ? voteData.options.map(optText => ({ id: generateId(), text: optText })) : [],
       allowMultipleSelections: voteData.allowMultipleSelections ?? false,
       allowAddingOptions: voteData.allowAddingOptions ?? false,
       createdAt: Timestamp.fromDate(new Date()),
