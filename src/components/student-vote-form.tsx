@@ -397,12 +397,12 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
       <CardContent>
         <Form {...submissionForm}>
           <form onSubmit={submissionForm.handleSubmit(handleVoteSubmit)} className="space-y-8">
-            <FormField
-              control={submissionForm.control}
+            <Controller
               name="submissionValue"
-              render={({ field }) => (
+              control={submissionForm.control}
+              render={({ field, fieldState }) => (
                 <FormItem className="space-y-3">
-                  <FormLabel className="text-lg">あなたの投票:</FormLabel>
+                   <FormLabel className="text-lg">あなたの投票:</FormLabel>
                   
                   {vote.voteType === "free_text" && (
                     <FormControl>
@@ -485,16 +485,20 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
                         className="flex flex-col space-y-2"
                       >
                         {vote.options.map((option) => (
-                          <div key={option.id} className="flex items-center space-x-3 p-3 border rounded-md hover:bg-secondary/50 transition-colors">
-                            <RadioGroupItem value={option.id} id={`radio-${option.id}`} />
-                            <Label htmlFor={`radio-${option.id}`} className="font-normal text-base flex-1 cursor-pointer">
-                              {option.text}
-                            </Label>
-                          </div>
+                           <FormItem key={option.id} className="flex items-center space-x-3 p-3 border rounded-md hover:bg-secondary/50 transition-colors">
+                              <FormControl>
+                                <RadioGroupItem value={option.id} id={`radio-${option.id}`} />
+                              </FormControl>
+                              <Label htmlFor={`radio-${option.id}`} className="font-normal text-base flex-1 cursor-pointer">
+                                {option.text}
+                              </Label>
+                           </FormItem>
                         ))}
                         {vote.allowAddingOptions && (
-                          <div className="flex items-center space-x-3 p-3 border rounded-md hover:bg-secondary/50 transition-colors">
-                            <RadioGroupItem value={INTERNAL_CUSTOM_OPTION_VALUE} id="custom-option-radio" />
+                          <FormItem className="flex items-center space-x-3 p-3 border rounded-md hover:bg-secondary/50 transition-colors">
+                            <FormControl>
+                              <RadioGroupItem value={INTERNAL_CUSTOM_OPTION_VALUE} id="custom-option-radio" />
+                            </FormControl>
                             <Label htmlFor="custom-option-radio" className="font-normal text-base flex-1 cursor-pointer">
                               <FormField
                                 control={submissionForm.control}
@@ -514,7 +518,7 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
                                 )}
                               />
                             </Label>
-                          </div>
+                          </FormItem>
                         )}
                       </RadioGroup>
                     )
@@ -526,22 +530,25 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
                         value={field.value || ''}
                         className="flex flex-col space-y-2"
                       >
-                        <div className="flex items-center space-x-3 p-3 border rounded-md hover:bg-secondary/50 transition-colors">
-                            <RadioGroupItem value="yes" id="radio-yes" />
+                         <FormItem className="flex items-center space-x-3 p-3 border rounded-md hover:bg-secondary/50 transition-colors">
+                            <FormControl>
+                              <RadioGroupItem value="yes" id="radio-yes" />
+                            </FormControl>
                             <Label htmlFor="radio-yes" className="font-normal text-base flex-1 cursor-pointer">
                               はい / 賛成
                             </Label>
-                        </div>
-                        <div className="flex items-center space-x-3 p-3 border rounded-md hover:bg-secondary/50 transition-colors">
+                        </FormItem>
+                        <FormItem className="flex items-center space-x-3 p-3 border rounded-md hover:bg-secondary/50 transition-colors">
+                           <FormControl>
                             <RadioGroupItem value="no" id="radio-no" />
+                           </FormControl>
                             <Label htmlFor="radio-no" className="font-normal text-base flex-1 cursor-pointer">
                               いいえ / 反対
                             </Label>
-                        </div>
+                        </FormItem>
                     </RadioGroup>
                   )}
-
-                  <FormMessage />
+                  {fieldState.error && <FormMessage>{fieldState.error.message}</FormMessage>}
                   {submissionForm.formState.errors.singleCustomOptionText && <FormMessage>{submissionForm.formState.errors.singleCustomOptionText.message}</FormMessage>}
                 </FormItem>
               )}

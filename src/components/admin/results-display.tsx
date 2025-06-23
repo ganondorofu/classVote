@@ -1,4 +1,3 @@
-
 "use client"
 
 import type { Vote, Submission } from "@/lib/store-types";
@@ -37,7 +36,7 @@ export function ResultsDisplay({ vote, submissions }: ResultsDisplayProps) {
   const aggregateResults = () => {
     const counts: { [key: string]: number } = {};
     submissions.forEach(sub => {
-      if (!sub.submissionValue) return;
+      if (sub.submissionValue === undefined || sub.submissionValue === null) return;
 
       if (vote.voteType === 'multiple_choice' || vote.voteType === 'yes_no') {
         let selectedOptions: string[] = [];
@@ -45,21 +44,31 @@ export function ResultsDisplay({ vote, submissions }: ResultsDisplayProps) {
           const parsed = JSON.parse(sub.submissionValue);
           if (Array.isArray(parsed)) {
             selectedOptions = parsed;
+          } else if (typeof parsed === 'string') { // Handle legacy data that might not be an array
+            selectedOptions = [parsed];
           }
         } catch (e) {
-          console.error("Could not parse submission value as JSON array:", sub.submissionValue, e);
-          // Don't process this submission if it's malformed for this vote type
-          return;
+            // Handle non-JSON string values if necessary, or just skip
+            if (typeof sub.submissionValue === 'string' && sub.submissionValue.trim() !== '') {
+                selectedOptions = [sub.submissionValue];
+            } else {
+                 console.warn("Could not parse submission value:", sub.submissionValue, e);
+                 return; // Skip malformed submission
+            }
         }
         
         selectedOptions.forEach(optionValue => {
-          const text = getOptionText(optionValue);
-          counts[text] = (counts[text] || 0) + 1;
+          if(optionValue) {
+            const text = getOptionText(optionValue);
+            counts[text] = (counts[text] || 0) + 1;
+          }
         });
 
       } else { // free_text
         const value = sub.submissionValue;
-        counts[value] = (counts[value] || 0) + 1;
+        if(value.trim() !== '') {
+            counts[value] = (counts[value] || 0) + 1;
+        }
       }
     });
     return Object.entries(counts).map(([name, value]) => ({ name, count: value }));
@@ -143,7 +152,7 @@ export function ResultsDisplay({ vote, submissions }: ResultsDisplayProps) {
               <ul className="space-y-1">
                 {submissions.map(sub => {
                     let displayValue = "";
-                    if (sub.submissionValue === undefined) {
+                    if (sub.submissionValue === undefined || sub.submissionValue === null) {
                         displayValue = "（空の投票）";
                     } else if (vote.voteType === 'multiple_choice' || vote.voteType === 'yes_no') {
                         try {
@@ -151,7 +160,7 @@ export function ResultsDisplay({ vote, submissions }: ResultsDisplayProps) {
                             if (Array.isArray(parsedValues)) {
                                 displayValue = parsedValues.map(val => getOptionText(val)).join(", ");
                             } else {
-                                displayValue = getOptionText(sub.submissionValue); // Fallback
+                                displayValue = getOptionText(parsedValues); // Fallback
                             }
                         } catch {
                             displayValue = getOptionText(sub.submissionValue); // Fallback for non-JSON
