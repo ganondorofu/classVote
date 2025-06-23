@@ -102,7 +102,7 @@ export function ResultsDisplay({ vote, submissions }: ResultsDisplayProps) {
                 {submissions.map(sub => (
                   <li key={sub.id} className="text-sm p-2 border-b flex justify-between items-center">
                     <span>
-                        <span className="font-medium">投票者 {sub.voterAttendanceNumber}: </span>{sub.submissionValue}
+                        <span className="font-medium">{sub.voterAttendanceNumber}番: </span>{sub.submissionValue}
                     </span>
                     {/* Reset button removed */}
                   </li>
@@ -174,7 +174,7 @@ export function ResultsDisplay({ vote, submissions }: ResultsDisplayProps) {
                       <li key={sub.id} className="text-sm flex items-center justify-between p-1.5 rounded hover:bg-secondary/50">
                         <span className="flex items-center">
                             <User className="mr-2 h-4 w-4 text-muted-foreground"/>
-                            投票者 {sub.voterAttendanceNumber}: <span className="font-semibold ml-1">{displayValue}</span>
+                            {sub.voterAttendanceNumber}番: <span className="font-semibold ml-1">{displayValue}</span>
                         </span>
                         {/* Reset button removed */}
                       </li>
