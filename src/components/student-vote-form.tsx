@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm, Controller, useFieldArray } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,7 +23,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { useVoteStore } from "@/hooks/use-vote-store";
 import { useToast } from "@/hooks/use-toast";
 import type { Vote } from "@/lib/store-types";
-import { Loader2, CheckCircle, AlertTriangle, Send, Eye, PlusCircle, Trash2, RefreshCcw } from "lucide-react";
+import { Loader2, CheckCircle, AlertTriangle, Send, Eye, RefreshCcw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Label } from '@/components/ui/label';
 
@@ -73,20 +73,26 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
         submissionValueSchema = schema;
       }
     } else if (currentVote.voteType === 'yes_no') {
-       submissionValueSchema = z.string({required_error: "「はい」または「いいえ」を選択してください。"});
-       if(currentVote.allowEmptyVotes) {
-        submissionValueSchema = submissionValueSchema.optional();
-       }
+        if (currentVote.allowEmptyVotes) {
+            submissionValueSchema = z.string().optional();
+        } else {
+            submissionValueSchema = z.string({
+                required_error: "「はい」または「いいえ」を選択してください。",
+            }).min(1, "「はい」または「いいえ」を選択してください。");
+        }
     } else if (currentVote.voteType === 'multiple_choice') {
       if (currentVote.allowMultipleSelections) {
         submissionValueSchema = z.array(z.string());
         if (!currentVote.allowEmptyVotes) {
           submissionValueSchema = submissionValueSchema.min(1, { message: "少なくとも1つの選択肢を選んでください。" });
         }
-      } else {
-        submissionValueSchema = z.string({ required_error: "選択肢を選んでください。" });
-        if(currentVote.allowEmptyVotes) {
-            submissionValueSchema = submissionValueSchema.optional();
+      } else { // single selection
+        if (currentVote.allowEmptyVotes) {
+            submissionValueSchema = z.string().optional();
+        } else {
+            submissionValueSchema = z.string({
+                required_error: "選択肢を選んでください。",
+            }).min(1, "選択肢を選んでください。");
         }
       }
     } else {
@@ -190,32 +196,13 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
             }
         }
         
-        if (selectedValues.length === 0 && !vote.allowEmptyVotes) {
-          toast({ title: "エラー", description: "回答を選択または入力してください。", variant: "destructive" });
-          setIsLoading(false);
-          return;
-        }
-
         finalSubmissionValue = JSON.stringify(selectedValues);
 
     } else if (vote.voteType === 'free_text') {
         finalSubmissionValue = typeof data.submissionValue === 'string' ? data.submissionValue.trim() : "";
-        if (finalSubmissionValue === "" && !vote.allowEmptyVotes && (vote.minCharacters ?? 0) === 0) {
-          toast({ title: "エラー", description: "回答を入力してください。", variant: "destructive" });
-          setIsLoading(false);
-          return;
-        }
     } else { // yes_no
         const selectedValue = data.submissionValue as string | undefined;
-        if (selectedValue) {
-            finalSubmissionValue = JSON.stringify([selectedValue]);
-        } else if (!vote.allowEmptyVotes) {
-            toast({ title: "エラー", description: "回答を選択してください。", variant: "destructive" });
-            setIsLoading(false);
-            return;
-        } else {
-             finalSubmissionValue = JSON.stringify([]);
-        }
+        finalSubmissionValue = selectedValue ? JSON.stringify([selectedValue]) : JSON.stringify([]);
     }
 
     await new Promise(resolve => setTimeout(resolve, 500)); 
@@ -545,6 +532,7 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
                         />
                       ))}
                    </div>
+                   {submissionForm.formState.errors.submissionValue && <FormMessage>{submissionForm.formState.errors.submissionValue.message}</FormMessage>}
                 </FormItem>
               )}
             <div className="flex justify-between items-center">
