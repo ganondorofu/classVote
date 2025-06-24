@@ -138,7 +138,7 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
   const submissionForm = useForm<VoteSubmissionValues>({
     resolver: zodResolver(createVoteSubmissionSchema(vote)),
     defaultValues: {
-      submissionValue: vote.allowMultipleSelections ? [] : undefined,
+      submissionValue: vote.allowMultipleSelections ? [] : '',
       singleCustomOptionText: "",
       customOptions: [{ text: "" }],
     }
@@ -150,7 +150,7 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
       setAlreadyVoted(hasVoted(vote.id, currentVoter.toString()));
       
       submissionForm.reset({
-        submissionValue: vote.allowMultipleSelections ? [] : undefined,
+        submissionValue: vote.allowMultipleSelections ? [] : '',
         singleCustomOptionText: "",
         customOptions: [{ text: "" }],
       });
@@ -401,7 +401,7 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
                     <FormControl>
                       <div>
                         {vote.voteType === "free_text" && (
-                          <Textarea placeholder="ここに回答を入力してください..." {...field} value={typeof field.value === 'string' ? field.value : ""} autoComplete="off" rows={5} />
+                          <Textarea placeholder="ここに回答を入力してください..." {...field} autoComplete="off" rows={5} />
                         )}
 
                         {vote.voteType === "multiple_choice" && vote.options && !vote.allowMultipleSelections && (
