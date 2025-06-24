@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm, Controller } from "react-hook-form";
+import { useForm, Controller, useFieldArray } from "react-hook-form";
 import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import {
@@ -399,7 +399,7 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
                   <FormItem className="space-y-3">
                     <FormLabel className="text-lg">あなたの投票:</FormLabel>
                     <FormControl>
-                      <>
+                      <div>
                         {vote.voteType === "free_text" && (
                           <Textarea placeholder="ここに回答を入力してください..." {...field} value={typeof field.value === 'string' ? field.value : ""} autoComplete="off" rows={5} />
                         )}
@@ -482,7 +482,7 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
                             )}
                           />
                         )}
-                      </>
+                      </div>
                     </FormControl>
                     {(vote.minCharacters ?? 0) > 0 && vote.voteType === 'free_text' && (
                         <FormDescription>
