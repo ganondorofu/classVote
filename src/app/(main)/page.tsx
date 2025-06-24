@@ -31,7 +31,7 @@ export default function HomePage() {
   return (
     <div className="container mx-auto py-8 px-4">
       <div className="flex flex-col sm:flex-row justify-between items-center mb-8 gap-4">
-        <h1 className="text-4xl font-bold font-headline text-primary">ClassVote Dashboard</h1>
+        <h1 className="text-4xl font-bold font-headline text-primary">Dashboard</h1>
         <Button asChild size="lg" className="bg-accent hover:bg-accent/90 text-accent-foreground">
           <Link href="/create-vote">
             <PlusCircle className="mr-2 h-5 w-5" /> 新規投票を作成
