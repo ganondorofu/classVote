@@ -232,15 +232,22 @@ export function ResultsDisplay({ vote, submissions }: ResultsDisplayProps) {
                 <BrainCircuit className="mr-2 h-5 w-5 text-primary"/>
                 AIによる結果分析
             </h4>
+             <p className="text-xs text-muted-foreground mb-3">
+              AI（人工知能）を利用して、提出された自由記述回答の概要と主要なテーマを生成します。AIによる要約は不正確または不適切な内容を含む可能性があります。必ず元の回答と照らし合わせて内容を確認してください。
+            </p>
             <Button onClick={handleSummarize} disabled={isSummarizing || freeTextSubmissionsForAI.length === 0}>
-                {isSummarizing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                {isSummarizing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <BrainCircuit className="mr-2 h-4 w-4" />}
                 AIで結果を要約
             </Button>
             {freeTextSubmissionsForAI.length === 0 && <p className="text-xs text-muted-foreground mt-1">要約できる回答がありません。</p>}
 
             {isSummarizing && (
-                <div className="mt-4 space-y-2">
-                    <div className="h-4 bg-muted rounded w-1/4 animate-pulse"></div>
+                <div className="mt-4 space-y-2 p-4 border rounded-md">
+                    <p className="text-sm text-muted-foreground flex items-center">
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin"/>
+                        AIが結果を分析中です。しばらくお待ちください...
+                    </p>
+                    <div className="h-4 bg-muted rounded w-1/4 animate-pulse mt-4"></div>
                     <div className="h-4 bg-muted rounded w-full animate-pulse"></div>
                     <div className="h-4 bg-muted rounded w-3/4 animate-pulse"></div>
                 </div>
@@ -249,7 +256,13 @@ export function ResultsDisplay({ vote, submissions }: ResultsDisplayProps) {
             {aiSummary && (
               <Card className="mt-4 bg-secondary/30">
                 <CardHeader>
-                  <CardTitle className="text-lg">要約結果</CardTitle>
+                  <CardTitle className="text-lg flex items-center">
+                      <BrainCircuit className="mr-2 h-5 w-5"/>
+                      AIによる要約結果
+                  </CardTitle>
+                   <CardDescription className="text-xs">
+                    この要約はAIによって生成されたものであり、誤りを含む可能性があります。
+                  </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div>
