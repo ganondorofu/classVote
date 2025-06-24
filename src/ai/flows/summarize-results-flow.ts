@@ -10,7 +10,7 @@
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
-export const SummarizeResultsInputSchema = z.object({
+const SummarizeResultsInputSchema = z.object({
   title: z.string().describe('The title of the vote.'),
   submissions: z
     .array(z.string())
@@ -18,7 +18,7 @@ export const SummarizeResultsInputSchema = z.object({
 });
 export type SummarizeResultsInput = z.infer<typeof SummarizeResultsInputSchema>;
 
-export const SummarizeResultsOutputSchema = z.object({
+const SummarizeResultsOutputSchema = z.object({
   summary: z
     .string()
     .describe(
