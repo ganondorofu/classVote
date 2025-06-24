@@ -147,15 +147,19 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
 
   useEffect(() => {
     if (currentVoter !== null) {
-      setAlreadyVoted(hasVoted(vote.id, currentVoter.toString()));
-      
       submissionForm.reset({
         submissionValue: vote.allowMultipleSelections ? [] : '',
         singleCustomOptionText: "",
         customOptions: [{ text: "" }],
       });
     }
-  }, [currentVoter, vote.id, hasVoted, submissionForm, vote.allowMultipleSelections]);
+  }, [currentVoter, submissionForm, vote.allowMultipleSelections]);
+
+  useEffect(() => {
+    if (currentVoter !== null) {
+      setAlreadyVoted(hasVoted(vote.id, currentVoter.toString()));
+    }
+  }, [currentVoter, vote.id, hasVoted]);
 
 
   const handleAttendanceSubmit = async (data: AttendanceFormValues) => {
