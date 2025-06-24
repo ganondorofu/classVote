@@ -51,7 +51,9 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
 
   const attendanceForm = useForm<AttendanceFormValues>({
     resolver: zodResolver(attendanceSchema),
-    defaultValues: { attendanceNumber: undefined },
+    defaultValues: {
+      attendanceNumber: '' as any,
+    },
   });
 
   const createVoteSubmissionSchema = useCallback((currentVote: Vote) => {
@@ -284,7 +286,7 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
           <p className="text-muted-foreground">あなたの投票は記録されました。</p>
         </CardContent>
         <CardFooter className="flex justify-center">
-            <Button onClick={() => { setCurrentVoter(null); setShowThankYou(false); attendanceForm.reset({ attendanceNumber: undefined }); }} variant="outline">
+            <Button onClick={() => { setCurrentVoter(null); setShowThankYou(false); attendanceForm.reset({ attendanceNumber: '' as any }); }} variant="outline">
                 別の出席番号で投票する
             </Button>
         </CardFooter>
@@ -370,7 +372,7 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
            )}
         </CardContent>
          <CardFooter className="flex justify-center">
-            <Button onClick={() => { setCurrentVoter(null); attendanceForm.reset({ attendanceNumber: undefined }); }} variant="outline">
+            <Button onClick={() => { setCurrentVoter(null); attendanceForm.reset({ attendanceNumber: '' as any }); }} variant="outline">
                 別の出席番号で投票する
             </Button>
         </CardFooter>
@@ -548,7 +550,7 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
                 </FormItem>
               )}
             <div className="flex justify-between items-center">
-              <Button type="button" variant="outline" onClick={() => { setCurrentVoter(null); attendanceForm.reset({ attendanceNumber: undefined }); }}>
+              <Button type="button" variant="outline" onClick={() => { setCurrentVoter(null); attendanceForm.reset({ attendanceNumber: '' as any }); }}>
                 出席番号を変更
               </Button>
               <Button type="submit" disabled={isLoading} className="bg-accent hover:bg-accent/90 text-accent-foreground min-w-[120px]">
