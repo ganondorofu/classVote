@@ -10,19 +10,19 @@ import { Users, CheckCircle, BarChart2, Edit3, Eye } from "lucide-react"; // Cha
 
 export const getVoteTypeDisplay = (type: Vote['voteType']) => {
   switch (type) {
-    case 'free_text': return 'Free Text';
-    case 'multiple_choice': return 'Multiple Choice';
-    case 'yes_no': return 'Yes/No';
-    default: return 'Unknown';
+    case 'free_text': return '自由記述';
+    case 'multiple_choice': return '多肢選択';
+    case 'yes_no': return 'はい/いいえ';
+    default: return '不明';
   }
 };
 
 export const getVisibilityDisplay = (setting: Vote['visibilitySetting']) => {
   switch (setting) {
-      case 'everyone': return 'Public';
-      case 'admin_only': return 'Admin Only';
-      case 'anonymous': return 'Anonymous';
-      default: return 'Unknown';
+      case 'everyone': return '全員に公開';
+      case 'admin_only': return '管理者のみ';
+      case 'anonymous': return '匿名';
+      default: return '不明';
   }
 };
 
@@ -38,41 +38,41 @@ export function VoteCard({ vote }: VoteCardProps) {
         <CardTitle className="text-xl font-headline">{vote.title}</CardTitle>
         <CardDescription className="flex items-center gap-2 pt-1">
           <Users className="h-4 w-4 text-muted-foreground" />
-          {vote.totalExpectedVoters} voters
+          対象者: {vote.totalExpectedVoters}人
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-2.5 flex-grow">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-muted-foreground">Status:</span>
+          <span className="text-sm font-medium text-muted-foreground">ステータス:</span>
           <Badge variant={vote.status === 'open' ? 'secondary' : 'destructive'}>
-            {vote.status === 'open' ? 'Open' : 'Closed'}
+            {vote.status === 'open' ? '受付中' : '終了'}
           </Badge>
         </div>
         <div className="flex items-center gap-2">
-           <span className="text-sm font-medium text-muted-foreground">Type:</span>
+           <span className="text-sm font-medium text-muted-foreground">形式:</span>
            <Badge variant="outline">{getVoteTypeDisplay(vote.voteType)}</Badge>
         </div>
          <div className="flex items-center gap-2">
-           <span className="text-sm font-medium text-muted-foreground">Visibility:</span>
+           <span className="text-sm font-medium text-muted-foreground">公開設定:</span>
            <Badge variant="outline">{getVisibilityDisplay(vote.visibilitySetting)}</Badge>
         </div>
       </CardContent>
       <CardFooter className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-2 pt-4">
         <Button asChild variant="outline" className="group w-full sm:w-auto">
           <Link href={`/vote/${vote.id}/admin`}>
-            <Edit3 className="mr-2 h-4 w-4 group-hover:animate-pulse" /> Manage
+            <Edit3 className="mr-2 h-4 w-4 group-hover:animate-pulse" /> 管理
           </Link>
         </Button>
         {vote.status === 'open' ? (
           <Button asChild className="group bg-primary hover:bg-primary/90 w-full sm:w-auto">
             <Link href={`/vote/${vote.id}`}>
-              <CheckCircle className="mr-2 h-4 w-4 group-hover:animate-bounce" /> Vote Now
+              <CheckCircle className="mr-2 h-4 w-4 group-hover:animate-bounce" /> 投票する
             </Link>
           </Button>
         ) : (
            <Button asChild variant="secondary" className="group w-full sm:w-auto">
             <Link href={`/vote/${vote.id}/results`}> {/* Changed link */}
-              <Eye className="mr-2 h-4 w-4 group-hover:animate-pulse" /> View Results
+              <Eye className="mr-2 h-4 w-4 group-hover:animate-pulse" /> 結果を見る
             </Link>
           </Button>
         )}

@@ -23,9 +23,9 @@ export default function HomePage() {
     .sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
   const getEmptyStateMessage = () => {
-    if (filterStatus === 'open') return "No open votes right now.";
-    if (filterStatus === 'closed') return "No closed votes.";
-    return "There are no active votes.";
+    if (filterStatus === 'open') return "公開中の投票はありません。";
+    if (filterStatus === 'closed') return "終了した投票はありません。";
+    return "アクティブな投票はありません。";
   };
 
   return (
@@ -34,7 +34,7 @@ export default function HomePage() {
         <h1 className="text-4xl font-bold font-headline text-primary">ClassVote Dashboard</h1>
         <Button asChild size="lg" className="bg-accent hover:bg-accent/90 text-accent-foreground">
           <Link href="/create-vote">
-            <PlusCircle className="mr-2 h-5 w-5" /> Create New Vote
+            <PlusCircle className="mr-2 h-5 w-5" /> 新規投票を作成
           </Link>
         </Button>
       </div>
@@ -43,13 +43,13 @@ export default function HomePage() {
         <Tabs value={filterStatus} onValueChange={(value) => setFilterStatus(value as Vote['status'] | 'all')}>
           <TabsList className="grid w-full grid-cols-3 md:w-auto md:inline-flex">
             <TabsTrigger value="open" className="text-sm">
-              <Filter className="mr-2 h-4 w-4" /> Open
+              <Filter className="mr-2 h-4 w-4" /> 受付中
             </TabsTrigger>
             <TabsTrigger value="closed" className="text-sm">
-              <Filter className="mr-2 h-4 w-4" /> Closed
+              <Filter className="mr-2 h-4 w-4" /> 終了
             </TabsTrigger>
             <TabsTrigger value="all" className="text-sm">
-              <Filter className="mr-2 h-4 w-4" /> All
+              <Filter className="mr-2 h-4 w-4" /> すべて
             </TabsTrigger>
           </TabsList>
         </Tabs>
@@ -73,7 +73,7 @@ export default function HomePage() {
         <div className="text-center py-10">
           <ListChecks className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
           <p className="text-xl text-muted-foreground">{getEmptyStateMessage()}</p>
-          {filterStatus !== 'closed' && <p className="text-muted-foreground">Why not create one?</p>}
+          {filterStatus !== 'closed' && <p className="text-muted-foreground">作成してみませんか？</p>}
         </div>
       )}
 
