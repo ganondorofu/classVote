@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, type ReactNode } from 'react';
@@ -101,7 +100,7 @@ export function AdminAuth({ expectedAdminPassword, onAuthenticated, children }: 
                 <FormItem>
                   <FormLabel>管理用パスワード</FormLabel>
                   <FormControl>
-                    <Input type="password" placeholder="4桁のパスワード" {...field} autoComplete="current-password" />
+                    <Input type="password" placeholder="4桁のパスワード" {...field} autoComplete="new-password" />
                   </FormControl>
                   <FormDescription>
                     投票作成時に設定した4桁のパスワードを入力してください。
@@ -128,4 +127,3 @@ export function AdminAuth({ expectedAdminPassword, onAuthenticated, children }: 
     </Card>
   );
 }
-
