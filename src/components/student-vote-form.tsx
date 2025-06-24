@@ -52,7 +52,7 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
   const attendanceForm = useForm<AttendanceFormValues>({
     resolver: zodResolver(attendanceSchema),
     defaultValues: {
-      attendanceNumber: '' as any,
+      attendanceNumber: '',
     },
   });
 
@@ -203,7 +203,7 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
         finalSubmissionValue = JSON.stringify(selectedValues);
 
     } else if (vote.voteType === 'free_text') {
-        finalSubmissionValue = typeof data.submissionValue === 'string' ? data.submissionValue.trim() : "";
+        finalSubmissionValue = typeof data.submissionValue === 'string' ? data.submissionValue : "";
     } else { // yes_no
         const selectedValue = data.submissionValue;
         if(typeof selectedValue === 'string' && selectedValue) {
@@ -286,7 +286,7 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
           <p className="text-muted-foreground">あなたの投票は記録されました。</p>
         </CardContent>
         <CardFooter className="flex justify-center">
-            <Button onClick={() => { setCurrentVoter(null); setShowThankYou(false); attendanceForm.reset({ attendanceNumber: '' as any }); }} variant="outline">
+            <Button onClick={() => { setCurrentVoter(null); setShowThankYou(false); attendanceForm.reset({ attendanceNumber: '' }); }} variant="outline">
                 別の出席番号で投票する
             </Button>
         </CardFooter>
@@ -372,7 +372,7 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
            )}
         </CardContent>
          <CardFooter className="flex justify-center">
-            <Button onClick={() => { setCurrentVoter(null); attendanceForm.reset({ attendanceNumber: '' as any }); }} variant="outline">
+            <Button onClick={() => { setCurrentVoter(null); attendanceForm.reset({ attendanceNumber: '' }); }} variant="outline">
                 別の出席番号で投票する
             </Button>
         </CardFooter>
@@ -413,7 +413,11 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
                             placeholder="ここに回答を入力してください..."
                             rows={5}
                             autoComplete="off"
-                            {...field}
+                            name={field.name}
+                            value={field.value || ''}
+                            onChange={field.onChange}
+                            onBlur={field.onBlur}
+                            ref={field.ref}
                            />
                         )}
 
@@ -550,7 +554,7 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
                 </FormItem>
               )}
             <div className="flex justify-between items-center">
-              <Button type="button" variant="outline" onClick={() => { setCurrentVoter(null); attendanceForm.reset({ attendanceNumber: '' as any }); }}>
+              <Button type="button" variant="outline" onClick={() => { setCurrentVoter(null); attendanceForm.reset({ attendanceNumber: '' }); }}>
                 出席番号を変更
               </Button>
               <Button type="submit" disabled={isLoading} className="bg-accent hover:bg-accent/90 text-accent-foreground min-w-[120px]">
