@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm, Controller, useFieldArray } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import {
@@ -102,7 +102,6 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
     return z.object({
         submissionValue: submissionValueSchema,
         singleCustomOptionText: z.string().max(100, "カスタム選択肢は100文字以内で入力してください。").optional(),
-        // We only care about the text for custom options
         customOptions: z.array(z.object({ text: z.string().max(100, "カスタム選択肢は100文字以内で入力してください。").optional() })).optional(),
     }).refine(data => {
         if (currentVote.voteType === 'multiple_choice' &&
@@ -175,10 +174,7 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
         let selectedValues: string[] = [];
 
         if (vote.allowMultipleSelections) {
-            // Get predefined selections
             selectedValues = Array.isArray(data.submissionValue) ? data.submissionValue.filter(v => v && v.trim() !== "") : [];
-
-            // Add custom selections
             if (vote.allowAddingOptions && data.customOptions) {
                 data.customOptions.forEach(opt => {
                     if (opt.text && opt.text.trim() !== "") {
@@ -201,8 +197,12 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
     } else if (vote.voteType === 'free_text') {
         finalSubmissionValue = typeof data.submissionValue === 'string' ? data.submissionValue.trim() : "";
     } else { // yes_no
-        const selectedValue = data.submissionValue as string | undefined;
-        finalSubmissionValue = selectedValue ? JSON.stringify([selectedValue]) : JSON.stringify([]);
+        const selectedValue = data.submissionValue;
+        if(typeof selectedValue === 'string' && selectedValue) {
+             finalSubmissionValue = JSON.stringify([selectedValue]);
+        } else {
+             finalSubmissionValue = JSON.stringify([]);
+        }
     }
 
     await new Promise(resolve => setTimeout(resolve, 500)); 
@@ -440,6 +440,7 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
                                             placeholder="その他（ここに記入）"
                                             className="w-full bg-transparent border-0 focus-visible:ring-0 focus-visible:ring-offset-0 p-0 h-auto"
                                             {...customTextField}
+                                            autoComplete="off"
                                             onFocus={() => {
                                               if (submissionForm.getValues("submissionValue") !== INTERNAL_CUSTOM_OPTION_VALUE) {
                                                 submissionForm.setValue("submissionValue", INTERNAL_CUSTOM_OPTION_VALUE, { shouldValidate: true });
