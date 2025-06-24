@@ -42,13 +42,19 @@ export default function TermsPage() {
             </p>
           </section>
           <section>
-            <h2 className="text-xl font-semibold mb-2">第4条（サービス内容の変更等）</h2>
+            <h2 className="text-xl font-semibold mb-2">第4条（公正性と透明性）</h2>
+            <p>
+              開発者は、本アプリにおける投票プロセスの公正性および透明性を重視します。開発者が投票結果を不正に操作すること、または投票プロセスに不当に介入することは一切ありません。本アプリの全ソースコードはGitHub上で公開されており、誰でもその動作を確認できます。これにより、本アプリの挙動が透明であることを保証します。
+            </p>
+          </section>
+          <section>
+            <h2 className="text-xl font-semibold mb-2">第5条（サービス内容の変更等）</h2>
             <p>
               開発者は、利用者に通知することなく、本アプリの内容を変更しまたは本アプリの提供を中止することができるものとし、これによって利用者に生じた損害について一切の責任を負いません。
             </p>
           </section>
           <section>
-            <h2 className="text-xl font-semibold mb-2">第5条（利用規約の変更）</h2>
+            <h2 className="text-xl font-semibold mb-2">第6条（利用規約の変更）</h2>
             <p>
               開発者は、必要と判断した場合には、利用者に通知することなくいつでも本規約を変更することができるものとします。
             </p>
