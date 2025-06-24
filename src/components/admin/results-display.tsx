@@ -4,12 +4,14 @@
 import type { Vote, Submission } from "@/lib/store-types";
 import { useState, useMemo } from "react";
 import { BarChart as RechartsBarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
-import { useVoteStore } from "@/hooks/use-vote-store";
 import { useToast } from "@/hooks/use-toast";
-import { CheckSquare, MessageSquare, EyeOff, User, List, RotateCcw, BarChartBigIcon, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
+import { CheckSquare, MessageSquare, EyeOff, User, List, RotateCcw, BarChartBigIcon, ArrowUp, ArrowDown, ArrowUpDown, BrainCircuit, Loader2 } from "lucide-react";
+import { summarizeResults, type SummarizeResultsOutput } from "@/ai/flows/summarize-results-flow";
+import { Badge } from "../ui/badge";
+import { Separator } from "../ui/separator";
 
 const USER_OPTION_PREFIX = "USER_OPTION:";
 const COLORS = ['#29ABE2', '#FF9933', '#82ca9d', '#ffc658', '#FF6B6B', '#A0E7E5', '#d0ed57', '#ffc0cb', '#8884d8'];
@@ -25,9 +27,40 @@ export function ResultsDisplay({ vote, submissions }: ResultsDisplayProps) {
     key: null,
     direction: 'asc',
   });
+  const [aiSummary, setAiSummary] = useState<SummarizeResultsOutput | null>(null);
+  const [isSummarizing, setIsSummarizing] = useState(false);
 
   const canShowIndividualVotes = vote.visibilitySetting === 'everyone' || (vote.visibilitySetting === 'admin_only');
   const isAnonymous = vote.visibilitySetting === 'anonymous';
+
+  const freeTextSubmissionsForAI = useMemo(() => {
+    if (vote.voteType !== 'free_text') return [];
+    return submissions
+      .map(s => s.submissionValue)
+      .filter((s): s is string => typeof s === 'string' && s.trim() !== '' && s !== 'ANONYMOUS_VOTED_STUB');
+  }, [submissions, vote.voteType]);
+
+  const handleSummarize = async () => {
+    setIsSummarizing(true);
+    setAiSummary(null);
+    try {
+      const result = await summarizeResults({
+        title: vote.title,
+        submissions: freeTextSubmissionsForAI,
+      });
+      setAiSummary(result);
+    } catch (error) {
+      console.error("AI summary failed:", error);
+      toast({
+        title: "AI要約エラー",
+        description: "結果の要約中にエラーが発生しました。",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSummarizing(false);
+    }
+  };
+
 
   const sortedFreeTextSubmissions = useMemo(() => {
     if (vote.voteType !== 'free_text') return [];
@@ -137,61 +170,105 @@ export function ResultsDisplay({ vote, submissions }: ResultsDisplayProps) {
         : submissions.length;
         
       return (
-        <>
-          <h4 className="text-md font-semibold mb-2 flex items-center">
-            <MessageSquare className="mr-2 h-5 w-5 text-primary"/>
-            提出内容 ({submissionCount}件):
-          </h4>
-          {(!canShowIndividualVotes && !isAnonymous) ? (
-            <p className="text-sm text-muted-foreground flex items-center">
-                <EyeOff className="mr-2 h-4 w-4"/>
-                公開設定により、個別の自由記述内容は非表示です。
-            </p>
-          ) : (
-            <>
-              <div className="flex items-center gap-2 mb-3">
-                  <span className="text-sm font-medium text-muted-foreground">並べ替え:</span>
-                  {!isAnonymous && (
-                    <Button variant="outline" size="sm" onClick={() => handleSort('number')}>
-                        出席番号
-                        {sortConfig.key === 'number' ? (
+        <div className="space-y-4">
+          <div>
+            <h4 className="text-md font-semibold mb-2 flex items-center">
+              <MessageSquare className="mr-2 h-5 w-5 text-primary"/>
+              提出内容 ({submissionCount}件):
+            </h4>
+            {(!canShowIndividualVotes && !isAnonymous) ? (
+              <p className="text-sm text-muted-foreground flex items-center">
+                  <EyeOff className="mr-2 h-4 w-4"/>
+                  公開設定により、個別の自由記述内容は非表示です。
+              </p>
+            ) : (
+              <>
+                <div className="flex items-center gap-2 mb-3">
+                    <span className="text-sm font-medium text-muted-foreground">並べ替え:</span>
+                    {!isAnonymous && (
+                      <Button variant="outline" size="sm" onClick={() => handleSort('number')}>
+                          出席番号
+                          {sortConfig.key === 'number' ? (
+                              sortConfig.direction === 'asc' ? <ArrowUp className="ml-2 h-4 w-4" /> : <ArrowDown className="ml-2 h-4 w-4" />
+                          ) : (
+                              <ArrowUpDown className="ml-2 h-4 w-4 text-muted-foreground" />
+                          )}
+                      </Button>
+                    )}
+                    <Button variant="outline" size="sm" onClick={() => handleSort('text')}>
+                        回答内容
+                        {sortConfig.key === 'text' ? (
                             sortConfig.direction === 'asc' ? <ArrowUp className="ml-2 h-4 w-4" /> : <ArrowDown className="ml-2 h-4 w-4" />
                         ) : (
                             <ArrowUpDown className="ml-2 h-4 w-4 text-muted-foreground" />
                         )}
                     </Button>
+                </div>
+                <ScrollArea className="h-60 w-full rounded-md border p-3 bg-background">
+                  {sortedFreeTextSubmissions.length === 0 ? (
+                    <p className="text-muted-foreground text-center py-4">まだ提出はありません。</p>
+                  ) : (
+                    <ul className="space-y-2">
+                      {sortedFreeTextSubmissions.map(sub => (
+                        <li key={sub.id} className="text-sm p-2 border-b flex justify-between items-center">
+                          {isAnonymous ? (
+                              <span>{sub.submissionValue}</span>
+                          ) : (
+                              <span>
+                                  <span className="font-medium">{sub.voterAttendanceNumber}番: </span>{sub.submissionValue}
+                              </span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
                   )}
-                  <Button variant="outline" size="sm" onClick={() => handleSort('text')}>
-                      回答内容
-                      {sortConfig.key === 'text' ? (
-                          sortConfig.direction === 'asc' ? <ArrowUp className="ml-2 h-4 w-4" /> : <ArrowDown className="ml-2 h-4 w-4" />
-                      ) : (
-                          <ArrowUpDown className="ml-2 h-4 w-4 text-muted-foreground" />
-                      )}
-                  </Button>
-              </div>
-              <ScrollArea className="h-60 w-full rounded-md border p-3 bg-background">
-                {sortedFreeTextSubmissions.length === 0 ? (
-                   <p className="text-muted-foreground text-center py-4">まだ提出はありません。</p>
-                ) : (
-                  <ul className="space-y-2">
-                    {sortedFreeTextSubmissions.map(sub => (
-                      <li key={sub.id} className="text-sm p-2 border-b flex justify-between items-center">
-                        {isAnonymous ? (
-                            <span>{sub.submissionValue}</span>
-                        ) : (
-                            <span>
-                                <span className="font-medium">{sub.voterAttendanceNumber}番: </span>{sub.submissionValue}
-                            </span>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </ScrollArea>
-            </>
-          )}
-        </>
+                </ScrollArea>
+              </>
+            )}
+          </div>
+          <Separator />
+          <div>
+            <h4 className="text-md font-semibold mb-3 flex items-center">
+                <BrainCircuit className="mr-2 h-5 w-5 text-primary"/>
+                AIによる結果分析
+            </h4>
+            <Button onClick={handleSummarize} disabled={isSummarizing || freeTextSubmissionsForAI.length === 0}>
+                {isSummarizing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                AIで結果を要約
+            </Button>
+            {freeTextSubmissionsForAI.length === 0 && <p className="text-xs text-muted-foreground mt-1">要約できる回答がありません。</p>}
+
+            {isSummarizing && (
+                <div className="mt-4 space-y-2">
+                    <div className="h-4 bg-muted rounded w-1/4 animate-pulse"></div>
+                    <div className="h-4 bg-muted rounded w-full animate-pulse"></div>
+                    <div className="h-4 bg-muted rounded w-3/4 animate-pulse"></div>
+                </div>
+            )}
+            
+            {aiSummary && (
+              <Card className="mt-4 bg-secondary/30">
+                <CardHeader>
+                  <CardTitle className="text-lg">要約結果</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <h5 className="font-semibold">主要なテーマ</h5>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                        {aiSummary.themes.map((theme, index) => (
+                            <Badge key={index} variant="secondary">{theme}</Badge>
+                        ))}
+                    </div>
+                  </div>
+                  <div>
+                    <h5 className="font-semibold">全体の概要</h5>
+                    <p className="text-sm text-foreground/80 whitespace-pre-wrap mt-1">{aiSummary.summary}</p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </div>
       );
     }
     
@@ -284,6 +361,9 @@ export function ResultsDisplay({ vote, submissions }: ResultsDisplayProps) {
             <CheckSquare className="mr-2 h-6 w-6 text-primary"/>
             投票結果
         </CardTitle>
+        <CardDescription>
+            合計 {submissions.length} 件の提出
+        </CardDescription>
       </CardHeader>
       <CardContent>
         {renderContent()}
