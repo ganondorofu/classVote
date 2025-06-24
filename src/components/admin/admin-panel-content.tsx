@@ -92,7 +92,7 @@ export function AdminPanelContent({ voteId }: AdminPanelContentProps) {
     <div className="space-y-8">
       <Card className="shadow-lg">
         <CardHeader>
-          <CardTitle className="text-3xl font-headline text-primary">{vote.title}</CardTitle>
+          <CardTitle className="text-2xl sm:text-3xl font-headline text-primary">{vote.title}</CardTitle>
           <CardDescription className="flex flex-wrap items-center gap-x-4 gap-y-2 pt-2">
             <span className="flex items-center"><Info className="mr-1.5 h-4 w-4 text-muted-foreground" /> ID: <Badge variant="secondary" className="ml-1">{vote.id}</Badge></span>
             <span className="flex items-center"><Users className="mr-1.5 h-4 w-4 text-muted-foreground" /> 対象者数: <Badge variant="secondary" className="ml-1">{vote.totalExpectedVoters}</Badge></span>

@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState } from "react";
@@ -134,7 +135,7 @@ export function CreateVoteForm() {
   return (
     <Card className="w-full max-w-2xl mx-auto shadow-xl">
       <CardHeader>
-        <CardTitle className="text-3xl font-headline text-primary">新しい投票を作成</CardTitle>
+        <CardTitle className="text-2xl sm:text-3xl font-headline text-primary">新しい投票を作成</CardTitle>
         <CardDescription>新しいクラス投票を開始するには、以下の詳細を入力してください。</CardDescription>
       </CardHeader>
       <CardContent>
