@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { VoteCard, getVoteTypeDisplay, getVisibilityDisplay } from "@/components/vote-card"; // Import helpers if needed elsewhere or keep them local
+import { VoteCard } from "@/components/vote-card";
 import { useVoteStore } from "@/hooks/use-vote-store";
 import { PlusCircle, ListChecks, Filter } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
