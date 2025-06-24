@@ -58,7 +58,9 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
     let submissionValueSchema: z.ZodTypeAny;
 
     if (currentVote.voteType === 'free_text') {
-      let schema: z.ZodType<string> = z.string().max(500, "回答が長すぎます。500文字以内で入力してください。");
+      let schema: z.ZodType<string> = z.string({
+        required_error: "回答を入力してください。",
+      }).max(500, "回答が長すぎます。500文字以内で入力してください。");
       const minChars = currentVote.minCharacters ?? 0;
 
       if (!currentVote.allowEmptyVotes) {
@@ -66,7 +68,7 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
         schema = schema.min(effectiveMin, `最低${effectiveMin}文字で入力してください。`);
       } else if (minChars > 0) {
         // Allow empty string OR string with min length
-        schema = schema.refine(val => val.length === 0 || val.length >= minChars, {
+        schema = schema.refine(val => (val ?? '').length === 0 || (val ?? '').length >= minChars, {
           message: `回答は空、または${minChars}文字以上で入力してください。`
         });
       }
@@ -153,7 +155,7 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
         customOptions: [{ text: "" }],
       });
     }
-  }, [currentVoter, vote.id, vote.allowMultipleSelections, submissionForm.reset]);
+  }, [currentVoter, vote.id, vote.allowMultipleSelections, submissionForm]);
 
   useEffect(() => {
     if (currentVoter !== null) {
@@ -316,7 +318,7 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
                   <FormItem>
                     <FormLabel>出席番号 (例: 1～{vote.totalExpectedVoters})</FormLabel>
                     <FormControl>
-                      <Input type="number" placeholder={`例: 10`} {...field} autoComplete="nope" min="1" max={vote.totalExpectedVoters.toString()} />
+                      <Input type="number" placeholder={`例: 10`} {...field} autoComplete="off" min="1" max={vote.totalExpectedVoters.toString()} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -408,9 +410,8 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
                           <Textarea
                             placeholder="ここに回答を入力してください..."
                             rows={5}
-                            autoComplete="nope"
+                            autoComplete="off"
                             {...field}
-                            value={field.value || ''}
                            />
                         )}
 
@@ -561,3 +562,5 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
     </Card>
   );
 }
+
+    
