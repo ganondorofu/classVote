@@ -40,7 +40,7 @@ const USER_OPTION_PREFIX = "USER_OPTION:";
 const INTERNAL_CUSTOM_OPTION_VALUE = "__INTERNAL_CUSTOM_OPTION__";
 
 export function StudentVoteForm({ vote }: StudentVoteFormProps) {
-  const { addSubmission, hasVoted, requestVoteReset, hasPendingResetRequest } = useVoteStore();
+  const { addSubmission, hasVoted, requestVoteReset, hasPendingResetRequest, submissions } = useVoteStore();
   const { toast } = useToast();
   const [currentVoter, setCurrentVoter] = useState<number | null>(null);
   const [alreadyVoted, setAlreadyVoted] = useState(false);
