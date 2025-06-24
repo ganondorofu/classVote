@@ -55,23 +55,22 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
   });
 
   const createVoteSubmissionSchema = useCallback((currentVote: Vote) => {
-    let submissionValueSchema;
+    let submissionValueSchema: z.ZodTypeAny;
 
     if (currentVote.voteType === 'free_text') {
-      let schema = z.string().max(500, "回答が長すぎます。500文字以内で入力してください。");
+      let schema: z.ZodType<string> = z.string().max(500, "回答が長すぎます。500文字以内で入力してください。");
       const minChars = currentVote.minCharacters ?? 0;
 
-      if (minChars > 0) {
-        schema = schema.min(minChars, `最低${minChars}文字で入力してください。`);
-      } else if (!currentVote.allowEmptyVotes) {
-        schema = schema.min(1, "回答を入力してください。");
+      if (!currentVote.allowEmptyVotes) {
+        const effectiveMin = Math.max(1, minChars);
+        schema = schema.min(effectiveMin, `最低${effectiveMin}文字で入力してください。`);
+      } else if (minChars > 0) {
+        // Allow empty string OR string with min length
+        schema = schema.refine(val => val.length === 0 || val.length >= minChars, {
+          message: `回答は空、または${minChars}文字以上で入力してください。`
+        });
       }
-      
-      if (currentVote.allowEmptyVotes && minChars === 0) {
-        submissionValueSchema = schema.optional().default("");
-      } else {
-        submissionValueSchema = schema;
-      }
+      submissionValueSchema = schema;
     } else if (currentVote.voteType === 'yes_no') {
         if (currentVote.allowEmptyVotes) {
             submissionValueSchema = z.string().optional();
@@ -146,6 +145,7 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
 
 
   useEffect(() => {
+    // Only reset the form when the voter changes.
     if (currentVoter !== null) {
       submissionForm.reset({
         submissionValue: vote.allowMultipleSelections ? [] : '',
@@ -153,7 +153,7 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
         customOptions: [{ text: "" }],
       });
     }
-  }, [currentVoter, submissionForm, vote.allowMultipleSelections]);
+  }, [currentVoter, vote.id, vote.allowMultipleSelections, submissionForm.reset]);
 
   useEffect(() => {
     if (currentVoter !== null) {
@@ -316,7 +316,7 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
                   <FormItem>
                     <FormLabel>出席番号 (例: 1～{vote.totalExpectedVoters})</FormLabel>
                     <FormControl>
-                      <Input type="number" placeholder={`例: 10`} value={field.value ?? ""} onChange={field.onChange} onBlur={field.onBlur} name={field.name} ref={field.ref} autoComplete="off" min="1" max={vote.totalExpectedVoters.toString()} />
+                      <Input type="number" placeholder={`例: 10`} {...field} autoComplete="nope" min="1" max={vote.totalExpectedVoters.toString()} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -405,7 +405,13 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
                     <FormControl>
                       <div>
                         {vote.voteType === "free_text" && (
-                          <Textarea placeholder="ここに回答を入力してください..." {...field} autoComplete="off" rows={5} />
+                          <Textarea
+                            placeholder="ここに回答を入力してください..."
+                            rows={5}
+                            autoComplete="nope"
+                            {...field}
+                            value={field.value || ''}
+                           />
                         )}
 
                         {vote.voteType === "multiple_choice" && vote.options && !vote.allowMultipleSelections && (
