@@ -269,7 +269,7 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
      return (
       <Card className="w-full max-w-lg mx-auto text-center shadow-lg">
         <CardHeader>
-          <CardTitle className="text-2xl font-headline">{vote.title}</CardTitle>
+          <CardTitle className="text-xl sm:text-2xl font-headline">{vote.title}</CardTitle>
         </CardHeader>
         <CardContent>
           <CheckCircle className="mx-auto h-16 w-16 text-green-500 mb-4" />
@@ -289,7 +289,7 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
     return (
       <Card className="w-full max-w-md mx-auto shadow-lg">
         <CardHeader>
-          <CardTitle className="text-2xl font-headline">{vote.title}</CardTitle>
+          <CardTitle className="text-xl sm:text-2xl font-headline">{vote.title}</CardTitle>
           <CardDescription className="flex flex-col gap-2">
             <span>投票するには出席番号（半角数字）を入力してください。</span>
              <span className="text-xs text-muted-foreground flex items-center flex-wrap gap-x-2 gap-y-1">
@@ -336,7 +336,7 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
     return (
       <Card className="w-full max-w-lg mx-auto text-center shadow-lg">
         <CardHeader>
-          <CardTitle className="text-2xl font-headline">{vote.title}</CardTitle>
+          <CardTitle className="text-xl sm:text-2xl font-headline">{vote.title}</CardTitle>
         </CardHeader>
         <CardContent>
           <CheckCircle className="mx-auto h-12 w-12 text-green-500 mb-4" />
@@ -375,7 +375,7 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
   return (
     <Card className="w-full max-w-lg mx-auto shadow-xl" key={currentVoter}>
       <CardHeader>
-        <CardTitle className="text-3xl font-headline text-primary">{vote.title}</CardTitle>
+        <CardTitle className="text-2xl sm:text-3xl font-headline text-primary">{vote.title}</CardTitle>
         <CardDescription className="flex flex-col gap-1">
             <span>出席番号: <span className="font-semibold">{currentVoter}</span> として投票します。</span>
              <span className="text-xs text-muted-foreground flex items-center flex-wrap gap-x-2 gap-y-1">
@@ -533,11 +533,11 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
                    {submissionForm.formState.errors.submissionValue && <FormMessage>{submissionForm.formState.errors.submissionValue.message}</FormMessage>}
                 </FormItem>
               )}
-            <div className="flex justify-between items-center">
-              <Button type="button" variant="outline" onClick={() => { setCurrentVoter(null); attendanceForm.reset({ attendanceNumber: '' }); }}>
+            <div className="flex flex-col-reverse sm:flex-row gap-4">
+              <Button type="button" variant="outline" onClick={() => { setCurrentVoter(null); attendanceForm.reset({ attendanceNumber: '' }); }} className="w-full sm:w-auto">
                 出席番号を変更
               </Button>
-              <Button type="submit" disabled={isLoading} className="bg-accent hover:bg-accent/90 text-accent-foreground min-w-[120px]">
+              <Button type="submit" disabled={isLoading} className="bg-accent hover:bg-accent/90 text-accent-foreground w-full sm:w-auto min-w-[120px]">
                 {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
                 投票を送信
               </Button>

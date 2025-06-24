@@ -202,10 +202,17 @@ export function ResultsDisplay({ vote, submissions }: ResultsDisplayProps) {
             <BarChartBigIcon className="mr-2 h-5 w-5 text-primary"/>
             投票分布
         </h4>
-        <ResponsiveContainer width="100%" height={300}>
-          <RechartsBarChart data={chartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+        <ResponsiveContainer width="100%" height={400}>
+          <RechartsBarChart data={chartData} margin={{ top: 5, right: 20, left: 10, bottom: 80 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))"/>
-            <XAxis dataKey="name" stroke="hsl(var(--foreground))" tick={{fontSize: 12}} interval={0} />
+            <XAxis 
+                dataKey="name" 
+                stroke="hsl(var(--foreground))" 
+                tick={{fontSize: 12}} 
+                interval={0}
+                angle={-45}
+                textAnchor="end"
+              />
             <YAxis allowDecimals={false} stroke="hsl(var(--foreground))" tick={{fontSize: 12}}/>
             <Tooltip
                 contentStyle={{
@@ -215,7 +222,7 @@ export function ResultsDisplay({ vote, submissions }: ResultsDisplayProps) {
                 }}
             />
             <Legend wrapperStyle={{fontSize: "14px"}}/>
-            <Bar dataKey="count" name="票数" barSize={Math.min(40, 300 / (chartData.length || 1) - 10 )}>
+            <Bar dataKey="count" name="票数">
                  {chartData.map((entry, index) => (
                     <Cell key={`cell-${entry.name}-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}

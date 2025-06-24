@@ -69,7 +69,7 @@ export default function VoteResultsPage() {
     <div className="container mx-auto py-10 px-4 space-y-8">
       <Card className="shadow-lg">
         <CardHeader>
-          <CardTitle className="text-3xl font-headline text-primary flex items-center">
+          <CardTitle className="text-2xl sm:text-3xl font-headline text-primary flex items-center">
             <Eye className="mr-3 h-8 w-8" />
             「{vote.title}」の投票結果
           </CardTitle>
