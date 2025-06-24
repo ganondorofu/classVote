@@ -149,21 +149,12 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
 
 
   useEffect(() => {
-    // Only reset the form when the voter changes.
-    if (currentVoter !== null) {
-      submissionForm.reset({
-        submissionValue: vote.allowMultipleSelections ? [] : '',
-        singleCustomOptionText: "",
-        customOptions: [{ text: "" }],
-      });
-    }
-  }, [currentVoter, vote.id, vote.allowMultipleSelections, submissionForm]);
-
-  useEffect(() => {
+    // This effect now only checks for the voted status when the voter or submissions change.
+    // The form reset is handled by the `key` prop on the form's Card component.
     if (currentVoter !== null) {
       setAlreadyVoted(hasVoted(vote.id, currentVoter.toString()));
     }
-  }, [currentVoter, vote.id, hasVoted]);
+  }, [currentVoter, vote.id, hasVoted, submissions]);
 
 
   const handleAttendanceSubmit = async (data: AttendanceFormValues) => {
@@ -382,7 +373,7 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
 
 
   return (
-    <Card className="w-full max-w-lg mx-auto shadow-xl">
+    <Card className="w-full max-w-lg mx-auto shadow-xl" key={currentVoter}>
       <CardHeader>
         <CardTitle className="text-3xl font-headline text-primary">{vote.title}</CardTitle>
         <CardDescription className="flex flex-col gap-1">
@@ -413,17 +404,14 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
                           placeholder="ここに回答を入力してください..."
                           rows={5}
                           autoComplete="off"
-                          name={field.name}
-                          value={typeof field.value === 'string' ? field.value : ""}
-                          onChange={field.onChange}
-                          onBlur={field.onBlur}
-                          ref={field.ref}
+                          {...field}
+                          value={field.value || ''}
                         />
                       </FormControl>
                     )}
 
                     {vote.voteType === "multiple_choice" && vote.options && !vote.allowMultipleSelections && (
-                      <FormControl>
+                       <FormControl>
                         <RadioGroup
                           onValueChange={(value) => {
                             field.onChange(value);
@@ -472,7 +460,7 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
                     )}
 
                     {vote.voteType === "yes_no" && (
-                      <FormControl>
+                       <FormControl>
                         <RadioGroup
                           onValueChange={field.onChange}
                           value={field.value || ''}
