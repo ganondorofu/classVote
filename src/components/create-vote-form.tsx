@@ -163,7 +163,7 @@ export function CreateVoteForm() {
                   <FormItem>
                     <FormLabel>管理用パスワード (4桁の数字)</FormLabel>
                     <FormControl>
-                      <Input type="password" placeholder="例: 1234" {...field} autoComplete="new-password" />
+                      <Input type="password" placeholder="例: 1234" {...field} autoComplete="off" />
                     </FormControl>
                     <FormDescription>この投票を管理するための4桁の数字のパスワードです。</FormDescription>
                     <FormMessage />
