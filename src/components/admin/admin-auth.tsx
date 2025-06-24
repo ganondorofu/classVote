@@ -100,7 +100,7 @@ export function AdminAuth({ expectedAdminPassword, onAuthenticated, children }: 
                 <FormItem>
                   <FormLabel>管理用パスワード</FormLabel>
                   <FormControl>
-                    <Input type="password" placeholder="4桁のパスワード" {...field} autoComplete="new-password" />
+                    <Input type="password" placeholder="4桁のパスワード" {...field} autoComplete="off" />
                   </FormControl>
                   <FormDescription>
                     投票作成時に設定した4桁のパスワードを入力してください。
