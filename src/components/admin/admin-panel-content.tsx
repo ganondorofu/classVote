@@ -169,7 +169,7 @@ export function AdminPanelContent({ voteId }: AdminPanelContentProps) {
             </CardContent>
         </Card>
         
-        <ResultsDisplay vote={vote} submissions={submissions} />
+        <ResultsDisplay vote={vote} submissions={submissions} isAdmin={true} />
       </div>
     </div>
   );

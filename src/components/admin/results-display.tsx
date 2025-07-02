@@ -12,6 +12,7 @@ import { CheckSquare, MessageSquare, EyeOff, User, List, RotateCcw, BarChartBigI
 import { summarizeResults, type SummarizeResultsOutput } from "@/ai/flows/summarize-results-flow";
 import { Badge } from "../ui/badge";
 import { Separator } from "../ui/separator";
+import { useVoteStore } from "@/hooks/use-vote-store";
 
 const USER_OPTION_PREFIX = "USER_OPTION:";
 const COLORS = ['#29ABE2', '#FF9933', '#82ca9d', '#ffc658', '#FF6B6B', '#A0E7E5', '#d0ed57', '#ffc0cb', '#8884d8'];
@@ -19,15 +20,19 @@ const COLORS = ['#29ABE2', '#FF9933', '#82ca9d', '#ffc658', '#FF6B6B', '#A0E7E5'
 interface ResultsDisplayProps {
   vote: Vote;
   submissions: Submission[];
+  isAdmin?: boolean;
 }
 
-export function ResultsDisplay({ vote, submissions }: ResultsDisplayProps) {
+export function ResultsDisplay({ vote, submissions, isAdmin = false }: ResultsDisplayProps) {
   const { toast } = useToast();
+  const { updateVoteWithAISummary } = useVoteStore();
   const [sortConfig, setSortConfig] = useState<{ key: 'number' | 'text' | null; direction: 'asc' | 'desc' }>({
     key: null,
     direction: 'asc',
   });
-  const [aiSummary, setAiSummary] = useState<SummarizeResultsOutput | null>(null);
+  const [aiSummary, setAiSummary] = useState<SummarizeResultsOutput | null>(
+     vote.aiSummary && vote.aiThemes ? { summary: vote.aiSummary, themes: vote.aiThemes } : null
+  );
   const [isSummarizing, setIsSummarizing] = useState(false);
 
   const canShowIndividualVotes = vote.visibilitySetting === 'everyone' || (vote.visibilitySetting === 'admin_only');
@@ -42,13 +47,17 @@ export function ResultsDisplay({ vote, submissions }: ResultsDisplayProps) {
 
   const handleSummarize = async () => {
     setIsSummarizing(true);
-    setAiSummary(null);
     try {
       const result = await summarizeResults({
         title: vote.title,
         submissions: freeTextSubmissionsForAI,
       });
       setAiSummary(result);
+      await updateVoteWithAISummary(vote.id, result.summary, result.themes);
+      toast({
+        title: "AI要約を更新しました",
+        description: "結果がデータベースに保存されました。",
+      });
     } catch (error) {
       console.error("AI summary failed:", error);
       toast({
@@ -228,19 +237,23 @@ export function ResultsDisplay({ vote, submissions }: ResultsDisplayProps) {
           </div>
           <Separator />
           <div>
-            <h4 className="text-md font-semibold mb-3 flex items-center">
-                <BrainCircuit className="mr-2 h-5 w-5 text-primary"/>
-                AIによる結果分析
-            </h4>
-             <p className="text-xs text-muted-foreground mb-3">
-              AI（人工知能）を利用して、提出された自由記述回答の概要と主要なテーマを生成します。AIによる要約は不正確または不適切な内容を含む可能性があります。必ず元の回答と照らし合わせて内容を確認してください。
-            </p>
-            <Button onClick={handleSummarize} disabled={isSummarizing || freeTextSubmissionsForAI.length === 0}>
-                {isSummarizing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <BrainCircuit className="mr-2 h-4 w-4" />}
-                AIで結果を要約
-            </Button>
-            {freeTextSubmissionsForAI.length === 0 && <p className="text-xs text-muted-foreground mt-1">要約できる回答がありません。</p>}
-
+            {isAdmin && (
+              <div className="mb-4">
+                <h4 className="text-md font-semibold mb-3 flex items-center">
+                  <BrainCircuit className="mr-2 h-5 w-5 text-primary"/>
+                  AIによる結果分析
+                </h4>
+                <p className="text-xs text-muted-foreground mb-3">
+                  AI（人工知能）を利用して、提出された自由記述回答の概要と主要なテーマを生成します。AIによる要約は不正確または不適切な内容を含む可能性があります。必ず元の回答と照らし合わせて内容を確認してください。
+                </p>
+                <Button onClick={handleSummarize} disabled={isSummarizing || freeTextSubmissionsForAI.length === 0}>
+                  {isSummarizing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <BrainCircuit className="mr-2 h-4 w-4" />}
+                  {aiSummary ? "AIで再要約" : "AIで結果を要約"}
+                </Button>
+                {freeTextSubmissionsForAI.length === 0 && !isSummarizing && <p className="text-xs text-muted-foreground mt-1">要約できる回答がありません。</p>}
+              </div>
+            )}
+            
             {isSummarizing && (
                 <div className="mt-4 space-y-2 p-4 border rounded-md">
                     <p className="text-sm text-muted-foreground flex items-center">
@@ -253,7 +266,7 @@ export function ResultsDisplay({ vote, submissions }: ResultsDisplayProps) {
                 </div>
             )}
             
-            {aiSummary && (
+            {aiSummary && !isSummarizing && (
               <Card className="mt-4 bg-secondary/30">
                 <CardHeader>
                   <CardTitle className="text-lg flex items-center">
