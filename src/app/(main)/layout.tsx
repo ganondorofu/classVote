@@ -20,7 +20,7 @@ export default function MainLayout({
               rel="noopener noreferrer"
               className="font-medium underline underline-offset-4 hover:text-primary"
             >
-              ソースコードはGitHubで公開
+              ソースコードはGitHubで公開中
             </a>
           </p>
           <div className="flex items-center gap-x-6 text-sm text-muted-foreground">
