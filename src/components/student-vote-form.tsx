@@ -147,6 +147,16 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
     }
   });
 
+  const handleGoToAttendanceEntry = () => {
+    setCurrentVoter(null);
+    setShowThankYou(false);
+    attendanceForm.reset({ attendanceNumber: '' });
+    submissionForm.reset({
+      submissionValue: vote.allowMultipleSelections ? [] : '',
+      singleCustomOptionText: "",
+      customOptions: [{ text: "" }],
+    });
+  };
 
   useEffect(() => {
     // This effect now only checks for the voted status when the voter or submissions change.
@@ -277,7 +287,7 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
           <p className="text-muted-foreground">あなたの投票は記録されました。</p>
         </CardContent>
         <CardFooter className="flex justify-center">
-            <Button onClick={() => { setCurrentVoter(null); setShowThankYou(false); attendanceForm.reset({ attendanceNumber: '' }); }} variant="outline">
+            <Button onClick={handleGoToAttendanceEntry} variant="outline">
                 別の出席番号で投票する
             </Button>
         </CardFooter>
@@ -363,7 +373,7 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
            )}
         </CardContent>
          <CardFooter className="flex justify-center">
-            <Button onClick={() => { setCurrentVoter(null); attendanceForm.reset({ attendanceNumber: '' }); }} variant="outline">
+            <Button onClick={handleGoToAttendanceEntry} variant="outline">
                 別の出席番号で投票する
             </Button>
         </CardFooter>
@@ -534,7 +544,7 @@ export function StudentVoteForm({ vote }: StudentVoteFormProps) {
                 </FormItem>
               )}
             <div className="flex flex-col-reverse sm:flex-row gap-4">
-              <Button type="button" variant="outline" onClick={() => { setCurrentVoter(null); attendanceForm.reset({ attendanceNumber: '' }); }} className="w-full sm:w-auto">
+              <Button type="button" variant="outline" onClick={handleGoToAttendanceEntry} className="w-full sm:w-auto">
                 出席番号を変更
               </Button>
               <Button type="submit" disabled={isLoading} className="bg-accent hover:bg-accent/90 text-accent-foreground w-full sm:w-auto min-w-[120px]">
