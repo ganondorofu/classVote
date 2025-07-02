@@ -67,6 +67,8 @@ export function useVoteStore() {
       minCharacters: data.minCharacters ?? 0,
       allowMultipleSelections: data.allowMultipleSelections ?? false,
       allowAddingOptions: data.allowAddingOptions ?? false,
+      aiSummary: data.aiSummary,
+      aiThemes: data.aiThemes,
     };
   };
 
@@ -184,6 +186,20 @@ export function useVoteStore() {
     } catch (error) {
       console.error("Error updating vote status:", error);
       toast({ title: "エラー", description: "ステータスの更新に失敗しました。", variant: "destructive" });
+    }
+  }, [toast]);
+
+  const updateVoteWithAISummary = useCallback(async (voteId: string, summary: string, themes: string[]) => {
+    const voteRef = doc(db, "votes", voteId);
+    try {
+      await updateDoc(voteRef, {
+        aiSummary: summary,
+        aiThemes: themes,
+      });
+    } catch (error) {
+      console.error("Error updating vote with AI summary:", error);
+      toast({ title: "エラー", description: "AI要約の保存に失敗しました。", variant: "destructive" });
+      throw error;
     }
   }, [toast]);
 
@@ -375,6 +391,7 @@ export function useVoteStore() {
     addVote,
     getVoteById,
     updateVoteStatus,
+    updateVoteWithAISummary,
     submissions,
     addSubmission,
     getSubmissionsByVoteId,

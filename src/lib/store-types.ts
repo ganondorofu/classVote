@@ -23,6 +23,8 @@ export interface Vote {
   // New fields for multiple_choice enhancements
   allowMultipleSelections?: boolean; // For multiple_choice: true if voters can select more than one option
   allowAddingOptions?: boolean; // For multiple_choice: true if voters can add their own options
+  aiSummary?: string;
+  aiThemes?: string[];
 }
 
 export interface Submission {
