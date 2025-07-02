@@ -7,7 +7,7 @@ import { Toaster } from '@/components/ui/toaster';
 export const metadata: Metadata = {
   title: 'ClassVote',
   description: 'シンプルなクラス投票アプリケーションです。',
-};
+};//
 
 export default function RootLayout({
   children,
