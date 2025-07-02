@@ -27,7 +27,7 @@ const SummarizeResultsOutputSchema = z.object({
     ),
   themes: z
     .array(z.string())
-    .describe('意見の中から見つかった3〜5個の主要なテーマやトピックのリスト。'),
+    .describe('意見の中から見つかった主要なテーマやトピックのリスト（最大15個）。'),
 });
 export type SummarizeResultsOutput = z.infer<
   typeof SummarizeResultsOutputSchema
@@ -55,7 +55,7 @@ const prompt = ai.definePrompt({
 
 あなたのタスク:
 1.  **全体像の要約:** すべての意見を網羅した、中立的で公平な要約を作成してください。多様な視点がどのように分布しているかを示してください。
-2.  **主要なテーマの抽出:** 意見の中で繰り返し現れる、あるいは重要だと思われる主要なテーマやキーワードを3〜5個特定し、リストアップしてください。
+2.  **主要なテーマの抽出:** 意見の中で繰り返し現れる、あるいは重要だと思われる主要なテーマやキーワードを最大15個特定し、リストアップしてください。
 
 出力は指定されたJSON形式に従い、すべてのテキストは日本語で記述してください。`,
 });
